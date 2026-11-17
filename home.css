@@ -54,5 +54,6 @@ a { color: inherit; }
   background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 30%), radial-gradient(circle at 60% 40%, #7cc25a 0 14%, rgba(124, 194, 90, 0) 15%), radial-gradient(circle at 40% 70%, #3a2449 0 18%, rgba(58, 36, 73, 0) 19%), radial-gradient(circle at 50% 50%, #2d2052, #120a24 75%);
   box-shadow: 0 0 60px rgba(155, 140, 255, .25); animation: spin 30s linear infinite; }
 @keyframes spin { to { background-position: 0 0; transform: rotate(360deg); } }
-@media (max-width: 480px) { .flip span { width: 36px; height: 48px; font-size: 26px; } .globe { width: 180px; height: 180px; } }
+.card.cd h2, .card.cd .no { padding-right: 160px; }
+@media (max-width: 480px) { .flip span { width: 36px; height: 48px; font-size: 26px; } .card.cd h2, .card.cd .no { padding-right: 126px; } .globe { width: 180px; height: 180px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
