@@ -420,8 +420,10 @@
     els.panel = h('aside', { class: 'panel', id: 'qz-panel', 'aria-hidden': 'true' });
     els.scrim = h('div', { class: 'scrim', onclick: function () { togglePanel(false); } });
     app.appendChild(h('div', { class: 'bg', 'aria-hidden': 'true' }, [els.bgScene, els.bgImg, els.bgDim, els.fx]));
+    var homeHref = document.body.getAttribute('data-home');
+    var homeLink = homeHref ? h('a', { class: 'home-link', href: homeHref, 'aria-label': '首页' }, '←') : null;
     app.appendChild(h('div', { class: 'page' }, [
-      h('header', { class: 'top' }, [h('div', { class: 'brand' }, [h('span', { class: 'egg', 'aria-hidden': 'true' }), h('div', null, [els.title, els.sub])]), els.gear]),
+      h('header', { class: 'top' }, [h('div', { class: 'brand' }, [homeLink, h('span', { class: 'egg', 'aria-hidden': 'true' }), h('div', null, [els.title, els.sub])]), els.gear]),
       h('main', { class: 'stage' }, [els.hero, els.others, els.styles])
     ]));
     app.appendChild(els.scrim);
