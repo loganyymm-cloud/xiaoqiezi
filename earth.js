@@ -67,6 +67,7 @@
     els.tip = h('div', { class: 'tip', hidden: true });
     els.scrim = h('div', { class: 'scrim', onclick: closeCity });
     els.panel = h('aside', { class: 'panel', 'aria-hidden': 'true' });
+    els.card = h('div', { class: 'pick-card', role: 'dialog', 'aria-label': '打卡', hidden: true });
     els.findIn = h('input', { type: 'search', id: 'qz-find', list: 'qz-find-list', placeholder: '搜国家或省份，比如 日本', autocomplete: 'off', enterkeyhint: 'go' });
     els.findList = h('datalist', { id: 'qz-find-list' });
     els.find = h('form', { class: 'find', role: 'search', onsubmit: function (ev) { ev.preventDefault(); find(els.findIn.value); } }, [
@@ -80,7 +81,8 @@
       els.gear
     ]));
     root.appendChild(els.stage);
-    [els.find, els.hint, els.legend, els.count, els.banner].forEach(function (x) { els.stage.appendChild(x); });
+    [els.find, els.hint, els.legend, els.count, els.banner, els.card].forEach(function (x) { els.stage.appendChild(x); });
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && pick && !document.querySelector('.dlg, .lb')) clearPick(); });
     root.appendChild(els.tip);
     root.appendChild(els.scrim);
     root.appendChild(els.panel);
@@ -258,7 +260,7 @@
   function provStat(pid) {
     var p = provById[pid];
     if (p && p.direct) return stat(pid);
-    var s = { a: false, b: false, has: false };
+    var s = stat(pid);
     (citiesOf[pid] || []).forEach(function (c) { merge(s, stat(c.id)); });
     return s;
   }
@@ -280,10 +282,60 @@
     els.count.appendChild(h('b', null, String(n)));
     els.count.appendChild(document.createTextNode('个地方'));
     if (state.city) updatePanel();
+    if (pick) renderCard();
+  }
+
+  /* ======================================================================
+     Check in without going in: first tap picks a place, second tap enters
+     ====================================================================== */
+  var pick = null;
+  function tap(ev, id, hash, label) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    if (pick && pick.id === id) { nav(hash); return; }
+    pick = { id: id, hash: hash, label: label || info(id).name, leaf: /^#[cr]-/.test(hash) };
+    if (globe) globe.idle = Date.now();
+    renderCard();
+    restyle();
+  }
+  function clearPick() {
+    if (!pick) return;
+    pick = null;
+    els.card.hidden = true;
+    els.hint.hidden = !!state.city;
+    restyle();
+  }
+  function isPick(id) { return !!pick && pick.id === id; }
+  function inside(id) {
+    var n = 0;
+    if (id === 'CHN') { provList.forEach(function (p) { var x = provStat(p.id); if (x.a || x.b) n++; }); return n; }
+    if (provById[id] && !provById[id].direct) { (citiesOf[id] || []).forEach(function (c) { var x = stat(c.id); if (x.a || x.b) n++; }); return n; }
+    if (countryById[id] && !oneRecord(id)) { for (var k in live.places) if (k.indexOf(id + '-') === 0) { var y = stat(k); if (y.a || y.b) n++; } }
+    return n;
+  }
+  function renderCard() {
+    var c = els.card, id = pick.id, i = info(id), d = live.places[id] || {}, vis = d.visited || {};
+    c.textContent = '';
+    var n = pick.leaf ? 0 : inside(id);
+    c.appendChild(h('div', { class: 'pick-head' }, [
+      h('h3', null, pick.label),
+      h('span', { class: 'pick-sub' }, i.sub || ''),
+      h('button', { class: 'x', type: 'button', 'aria-label': '关闭', onclick: clearPick }, '×')
+    ]));
+    var row = h('div', { class: 'pick-row' }, ['a', 'b'].map(function (w) {
+      return h('button', { class: 'who', type: 'button', 'data-who': w, 'aria-pressed': String(!!vis[w]), onclick: function () { toggleVisit(id, w); } }, nameOf(w) + ' 去过');
+    }));
+    if (vis.a && vis.b) row.appendChild(h('span', { class: 'both-badge' }, '两个人都去过'));
+    row.appendChild(h('button', { class: 'btn btn-leaf btn-s pick-go', type: 'button', onclick: function () { nav(pick.hash); } }, pick.leaf ? '打开记录 →' : '进去看看 →'));
+    c.appendChild(row);
+    c.appendChild(h('p', { class: 'pick-note' }, (n ? '里面点亮了 ' + n + ' 个地方 · ' : '') + (pick.leaf ? '再点一下也能打开' : '再点一下就进去')));
+    c.hidden = false;
+    els.hint.hidden = true;
   }
 
   /* ---- what a record is about ---- */
   function info(cid) {
+    if (cid === 'CHN') return { name: '中国', sub: 'China', country: 'CHN' };
+    if (provById[cid] && !cityById[cid]) return { name: provById[cid].name, sub: '中国', country: 'CHN', prov: cid };
     var c = cityById[cid];
     if (c) {
       var p = provById[c.prov];
@@ -420,6 +472,7 @@
     ha.append('stop').attr('offset', '86%').attr('stop-color', 'rgba(155,140,255,.18)');
     ha.append('stop').attr('offset', '100%').attr('stop-color', 'rgba(155,140,255,0)');
     gRoot = svg.append('g');
+    svg.on('click.bg', function () { clearPick(); });
     zoom = null; zoomK = 1;
     hideTip();
   }
@@ -459,28 +512,29 @@
     gRoot.append('circle').attr('class', 'halo').attr('cx', W / 2).attr('cy', H / 2).attr('r', R * 1.25);
     var sphere = gRoot.append('path').datum({ type: 'Sphere' }).attr('class', 'sphere');
     var grat = gRoot.append('path').datum(d3.geoGraticule10()).attr('class', 'grat');
-    var goCountry = function (ev, d) { nav('#w-' + d.properties.id); };
+    var goCountry = function (ev, d) { tap(ev, d.properties.id, '#w-' + d.properties.id, d.properties.name); };
     var land = gRoot.append('g').selectAll('path').data(world.features).join('path')
       .attr('aria-label', function (d) { return d.properties.name; })
       .on('click', goCountry);
     hoverable(land, function (d) { return d.properties.name; }, function (d) { return countryStat(d.properties.id); });
     keyable(land, goCountry);
+    var goChina = function (ev) { tap(ev, 'CHN', '#china', '中国'); };
     var cn = gRoot.append('g').selectAll('path').data(chinaFC.features).join('path')
-      .on('click', function () { nav('#china'); })
+      .on('click', goChina)
       .on('pointerenter', function () { cn.classed('hot', true); })
       .on('pointerleave', function () { cn.classed('hot', false); });
-    hoverable(cn, function (d) { return '中国 · ' + d.properties.name; }, function (d) { return provStat(d.properties.id); });
-    keyable(cn.filter(function (d, i) { return i === 0; }).attr('aria-label', '中国'), function () { nav('#china'); });
+    hoverable(cn, function (d) { return '中国 · ' + d.properties.name; }, function (d) { return merge(provStat(d.properties.id), stat('CHN')); });
+    keyable(cn.filter(function (d, i) { return i === 0; }).attr('aria-label', '中国'), goChina);
     var small = countries.filter(function (c) { return !c.poly; });
     var dots = gRoot.append('g').selectAll('circle').data(small).join('circle')
       .attr('r', 2.6)
-      .on('click', function (ev, d) { nav('#w-' + d.id); });
+      .on('click', function (ev, d) { tap(ev, d.id, '#w-' + d.id, d.name); });
     hoverable(dots, function (d) { return d.name; }, function (d) { return countryStat(d.id); });
 
     globe.paint = function () {
-      land.attr('class', function (d) { return 'land ' + vclass(countryStat(d.properties.id)); });
-      cn.attr('class', function (d) { return 'land cn ' + vclass(provStat(d.properties.id)); });
-      dots.attr('class', function (d) { return 'gdot ' + vclass(countryStat(d.id)); });
+      land.attr('class', function (d) { return 'land ' + vclass(countryStat(d.properties.id)) + (isPick(d.properties.id) ? ' pick' : ''); });
+      cn.attr('class', function (d) { return 'land cn ' + vclass(merge(provStat(d.properties.id), stat('CHN'))) + (isPick('CHN') ? ' pick' : ''); });
+      dots.attr('class', function (d) { return 'gdot ' + vclass(countryStat(d.id)) + (isPick(d.id) ? ' pick' : ''); });
     };
     globe.draw = function () {
       sphere.attr('d', path); grat.attr('d', path);
@@ -508,7 +562,7 @@
       var last = 0;
       globe.timer = d3.timer(function (t) {
         var dt = t - last; last = t;
-        if (globe.drag || Date.now() - globe.idle < 2500 || document.hidden) return;
+        if (globe.drag || pick || Date.now() - globe.idle < 2500 || document.hidden) return;
         globe.rot = [globe.rot[0] + Math.min(dt, 50) * .0016, globe.rot[1], 0];
         proj.rotate(globe.rot); globe.draw();
       });
@@ -552,7 +606,7 @@
     var pad = Math.min(W, H) * .05;
     var proj = d3.geoMercator().fitExtent([[pad, pad + 40], [W - pad, H - pad - 40]], CHINA_BOX);
     var path = d3.geoPath(proj);
-    var go = function (ev, d) { nav('#p-' + d.properties.id); };
+    var go = function (ev, d) { tap(ev, d.properties.id, '#p-' + d.properties.id, d.properties.name); };
     var provs = gRoot.append('g').selectAll('path').data(chinaFC.features).join('path')
       .attr('d', path)
       .attr('data-id', function (d) { return d.properties.id; })
@@ -575,7 +629,7 @@
       dots.attr('r', function (d) { return (vclass(stat(d.id)) ? 3.2 : 1.5) * Math.min(1, 2.2 / k); });
     }
     cur.restyle = function () {
-      provs.attr('class', function (d) { var s = provStat(d.properties.id); return 'prov ' + vclass(s) + (s.has ? ' has' : ''); });
+      provs.attr('class', function (d) { var s = provStat(d.properties.id); return 'prov ' + vclass(s) + (s.has ? ' has' : '') + (isPick(d.properties.id) ? ' pick' : ''); });
       dots.attr('class', function (d) { return 'dot ' + vclass(stat(d.id)); });
       sizeAll(zoomK);
     };
@@ -606,7 +660,7 @@
     if (opt.center) proj.rotate([-opt.center[0], 0]);
     proj.fitExtent([[pad, pad + (opt.direct ? 30 : 0)], [W - pad - right, H - pad - 40]], fit);
     var path = d3.geoPath(proj);
-    var open = function (ev, d) { nav(opt.openHash(d)); };
+    var open = function (ev, d) { tap(ev, opt.idOf(d), opt.openHash(d)); };
     var shapes = gRoot.append('g').selectAll('path').data(fc.features).join('path')
       .attr('d', path)
       .attr('aria-label', function (d) { return d.properties.name; })
@@ -637,7 +691,7 @@
     cur.restyle = function () {
       shapes.attr('class', function (d) {
         var id = opt.idOf(d), s = stat(id);
-        return 'city ' + vclass(s) + (s.has ? ' has' : '') + (!opt.direct && state.city === id ? ' sel' : '');
+        return 'city ' + vclass(s) + (s.has ? ' has' : '') + (!opt.direct && state.city === id ? ' sel' : '') + (isPick(id) ? ' pick' : '');
       });
       sizeAll(zoomK);
     };
@@ -719,6 +773,7 @@
     var to = parse(), from = state;
     var done = function () { busy = false; if (pending) { pending = false; route(); } };
     busy = true;
+    pick = null; els.card.hidden = true;
     var fail = function () { toast('地图没加载出来，刷新一下试试'); done(); };
     if (to.level === 'globe') {
       closePanel(); state = { level: 'globe' }; renderGlobe(); after(); done();
@@ -756,11 +811,11 @@
   }
   function after() {
     renderCrumbs();
-    var hint = { globe: '拖动转地球 · 点国家进去', china: '点省份放大 · 滚轮或双指缩放' }[state.level];
-    if (state.level === 'prov') hint = provById[state.prov].direct ? '点地图打开你们的记录' : '点城市写你们的记录';
-    if (state.level === 'country') hint = oneRecord(state.country) ? '点地图打开你们的记录' : '点地区写你们的记录 · 可以缩放';
+    var hint = { globe: '点国家先打卡 · 再点一下进去', china: '点省份先打卡 · 再点一下进去' }[state.level];
+    if (state.level === 'prov') hint = provById[state.prov].direct ? '点地图打卡 · 再点一下打开记录' : '点城市先打卡 · 再点一下打开记录';
+    if (state.level === 'country') hint = oneRecord(state.country) ? '点地图打卡 · 再点一下打开记录' : '点地区先打卡 · 再点一下打开记录';
     setText(els.hint, hint);
-    els.hint.hidden = !!state.city;
+    els.hint.hidden = !!state.city || !!pick;
     els.legend.hidden = false;
     els.find.hidden = state.level !== 'globe';
   }

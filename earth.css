@@ -108,6 +108,20 @@ button { cursor: pointer; }
 .count b { color: var(--gold); font-size: 16px; margin: 0 2px; }
 @media (max-width: 700px) { .legend { flex-direction: row; flex-wrap: wrap; max-width: calc(100% - 140px); } .hint { bottom: 72px; } }
 
+/* ---------- check-in card ---------- */
+.pick-card { position: absolute; z-index: 4; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(440px, calc(100% - 24px)); display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; border-radius: 18px; background: rgba(27, 18, 34, .96); border: 1px solid var(--line); box-shadow: 0 18px 50px rgba(0, 0, 0, .45); }
+.pick-head { display: flex; align-items: baseline; gap: 10px; }
+.pick-head h3 { margin: 0; font-family: var(--font-text); font-size: 21px; font-weight: 600; }
+.pick-sub { min-width: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-head .x { margin-left: auto; flex: none; align-self: center; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel-2); font-size: 16px; line-height: 1; }
+.pick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pick-go { margin-left: auto; }
+.pick-note { margin: 0; font-size: 12px; color: var(--muted); }
+@media (min-width: 701px) { .open .pick-card { left: calc((100% - min(440px, 100%)) / 2); } }
+@media (max-width: 700px) { .pick-card { bottom: 74px; } }
+.land.pick, .prov.pick, .city.pick { stroke: #fff; stroke-width: 2.2; }
+.land.pick { stroke-width: 1.4; }
+.gdot.pick { stroke: #fff; stroke-width: 2; }
 .tip { position: fixed; z-index: 6; pointer-events: none; padding: 6px 10px; border-radius: 10px; background: #2a1d33; border: 1px solid var(--line); font-size: 13px; white-space: nowrap; transform: translate(-50%, calc(-100% - 12px)); }
 .tip i { font-style: normal; margin-left: 6px; }
 
