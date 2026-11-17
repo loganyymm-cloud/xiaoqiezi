@@ -63,6 +63,7 @@ button { cursor: pointer; }
 .stage { position: relative; z-index: 1; flex: 1; min-height: 0; }
 .stage svg { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
 .sphere { fill: url(#qz-ocean); stroke: rgba(255, 255, 255, .12); }
+.night { fill: rgba(2, 4, 16, .55); stroke: rgba(255, 170, 110, .25); stroke-width: 1; pointer-events: none; }
 .halo { fill: url(#qz-halo); pointer-events: none; }
 .grat { fill: none; stroke: rgba(255, 255, 255, .07); stroke-width: .6; pointer-events: none; }
 .land { fill: var(--land); stroke: var(--land-line); stroke-width: .5; cursor: pointer; transition: fill .15s; }

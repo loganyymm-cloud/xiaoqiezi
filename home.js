@@ -410,6 +410,28 @@
     panel.querySelector('.p-body').scrollTop = scroll;
   }
 
+  /* the little globe on the earth card: lit where it is day right now, city lights where it is night */
+  var globeDeco = document.querySelector('.deco.globe'), decoUrl = null, dayNight = null;
+  function bakeDeco() {
+    if (!dayNight || document.hidden) return;
+    try {
+      window.QZSun.bake(dayNight[0], dayNight[1], 1024, 512).toBlob(function (b) {
+        if (!b) return;
+        var u = URL.createObjectURL(b);
+        globeDeco.style.backgroundImage = 'url("' + u + '")';
+        if (decoUrl) URL.revokeObjectURL(decoUrl);
+        decoUrl = u;
+      }, 'image/jpeg', .88);
+    } catch (err) { /* keep the plain daylight picture */ }
+  }
+  if (window.QZSun && globeDeco) {
+    Promise.all([window.QZSun.load('img/earth.jpg?v=1'), window.QZSun.load('img/earth-night.jpg?v=1')]).then(function (imgs) {
+      dayNight = imgs; bakeDeco();
+      setInterval(bakeDeco, 120000);
+      document.addEventListener('visibilitychange', bakeDeco);
+    }, function () {});
+  }
+
   applyLook();
   applyText();
   buildPanel();

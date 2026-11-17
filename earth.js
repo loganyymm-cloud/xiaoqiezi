@@ -513,6 +513,7 @@
       .on('pointerleave', function () { cn.classed('hot', false); });
     hoverable(cn, function (d) { return '中国 · ' + d.properties.name; }, function (d) { return merge(provStat(d.properties.id), stat('CHN')); });
     keyable(cn.filter(function (d, i) { return i === 0; }).attr('aria-label', '中国'), goChina);
+    var nightP = window.QZSun ? gRoot.append('path').attr('class', 'night') : null, nightAt = 0;
     var small = countries.filter(function (c) { return !c.poly; });
     var dots = gRoot.append('g').selectAll('circle').data(small).join('circle')
       .attr('r', 2.6)
@@ -526,6 +527,10 @@
     };
     globe.draw = function () {
       sphere.attr('d', path);
+      if (nightP) {
+        if (Date.now() - nightAt > 30000) { var s = window.QZSun.at(); nightAt = Date.now(); nightP.datum(d3.geoCircle().center([s.lng + 180, -s.lat]).radius(90)()); }
+        nightP.attr('d', path);
+      }
       land.attr('d', path); cn.attr('d', path);
       var center = [-proj.rotate()[0], -proj.rotate()[1]];
       dots.each(function (d) {
@@ -604,9 +609,49 @@
       var ctl = G.controls();
       ctl.autoRotateSpeed = .3; ctl.minDistance = 125; ctl.maxDistance = 700;
       G.pointOfView({ lat: 26, lng: 104, altitude: 2.3 });
+      dayNightGL();
       glState = true;
     } catch (e) { G = null; glState = false; }
     return glState;
+  }
+  /* real day and night: lit where the sun is up right now, city lights where it is night */
+  var sunU = null, sunTimer = 0;
+  function sunDir() {
+    var s = window.QZSun.at(), p = G.getCoords(s.lat, s.lng, 0), n = Math.hypot(p.x, p.y, p.z) || 1;
+    return [p.x / n, p.y / n, p.z / n];
+  }
+  function dayNightGL() {
+    if (!window.QZSun || !G || typeof G.getCoords !== 'function') return;
+    var tries = 0;
+    (function wait() {
+      var mat = G.globeMaterial();
+      if (!mat || !mat.map || !mat.map.image) { if (++tries < 300) setTimeout(wait, 100); return; }
+      window.QZSun.load('img/earth-night.jpg?v=1').then(function (img) {
+        var night = mat.map.clone();
+        /* a clone shares the picture with the daytime map, so give it its own */
+        if (night.source && night.source.constructor) night.source = new night.source.constructor(img); else night.image = img;
+        night.needsUpdate = true;
+        sunU = { value: G.camera().position.clone() };
+        var d = sunDir(); sunU.value.set(d[0], d[1], d[2]);
+        mat.onBeforeCompile = function (sh) {
+          sh.uniforms.qzNight = { value: night };
+          sh.uniforms.qzSun = sunU;
+          sh.vertexShader = 'varying vec3 qzN;\n' + sh.vertexShader.replace('#include <beginnormal_vertex>',
+            '#include <beginnormal_vertex>\n\tqzN = normalize(mat3(modelMatrix) * objectNormal);');
+          sh.fragmentShader = 'uniform sampler2D qzNight;\nuniform vec3 qzSun;\nvarying vec3 qzN;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', [
+            'float qzS = dot(normalize(qzN), qzSun);',
+            'float qzK = smoothstep(-0.1, 0.1, qzS);',
+            'vec3 qzNightC = linearToOutputTexel(texture2D(qzNight, vMapUv)).rgb * 1.15;',
+            'float qzGlow = max(0.0, 1.0 - abs(qzS) / 0.1) * 0.2;',
+            'gl_FragColor.rgb = mix(qzNightC, gl_FragColor.rgb, qzK) + vec3(1.0, 0.55, 0.28) * qzGlow;',
+            '#include <dithering_fragment>'].join('\n'));
+        };
+        mat.customProgramCacheKey = function () { return 'qz-daynight'; };
+        mat.needsUpdate = true;
+        clearInterval(sunTimer);
+        sunTimer = setInterval(function () { var v = sunDir(); sunU.value.set(v[0], v[1], v[2]); }, 30000);
+      }, function () { /* no night picture: keep the plain daylight globe */ });
+    })();
   }
   function refreshGL() {
     if (!G) return;
