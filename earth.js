@@ -625,7 +625,7 @@
   }
 
   /* ---------- the real Earth: today's day and night, clouds, and sharp NASA imagery up close ---------- */
-  var TILE_URL = function (x, y, l) { return 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_NextGeneration/default/GoogleMapsCompatible_Level8/' + l + '/' + y + '/' + x + '.jpeg'; };
+  var TILE_URL = function (x, y, l) { return 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/' + l + '/' + y + '/' + x + '.jpeg'; };
   var sunU = { value: null }, nightU = { value: null }, sunTimer = 0, globeMesh = null, tileGroup = null, clouds = null, tilesOn = false, curAlt = 2.3, wasNear = false, t0 = Date.now();
   var DN_HEAD = [
     'uniform sampler2D qzNight;', 'uniform vec3 qzSun;', 'varying vec3 qzN;',
