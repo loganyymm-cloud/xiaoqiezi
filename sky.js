@@ -1,5 +1,6 @@
 /* A night sky: a painted Milky Way and star field, twinkling bright stars, and the odd shooting star.
-   Usage: QZSky.mount(element). Draws into two canvases it adds to the element. */
+   Usage: QZSky.mount(element, { base: false, deep: true }). Draws into two canvases it adds to the element.
+   deep: plain black space with a few small stars, like a photo taken from orbit. */
 (function () {
   'use strict';
   var reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -11,7 +12,7 @@
   function tint() { var r = Math.random(); return r < .12 ? TINTS[0] : r < .3 ? TINTS[1] : r < .5 ? TINTS[2] : r < .78 ? TINTS[3] : r < .9 ? TINTS[4] : r < .97 ? TINTS[5] : TINTS[6]; }
 
   function mount(el, opts) {
-    var withBase = !(opts && opts.base === false), on = true;
+    var withBase = !(opts && opts.base === false), deep = !!(opts && opts.deep), on = true;
     var base = document.createElement('canvas'), live = document.createElement('canvas');
     [base, live].forEach(function (c) { c.setAttribute('aria-hidden', 'true'); c.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block'; el.appendChild(c); });
     var W = 0, H = 0, dpr = 1, bright = [], meteors = [], nextMeteor = 0, raf = 0, last = 0;
@@ -31,6 +32,7 @@
     }
 
     function paintSpace(g, ang, cx, cy, len, ux, uy, nx, ny, band) {
+      if (deep) { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); return; }
       /* deep space */
       var bg = g.createRadialGradient(W * .5, H * .45, 0, W * .5, H * .45, Math.max(W, H) * .8);
       bg.addColorStop(0, '#0b0d1f'); bg.addColorStop(1, '#03040a');
@@ -64,6 +66,7 @@
     }
 
     function paintStars(g, cx, cy, len, ux, uy, nx, ny, band) {
+      if (deep) { paintDeepStars(g); return; }
       /* dust of faint stars, thicker along the band */
       var area = W * H, n = Math.round(area / 380);
       for (var k = 0; k < n; k++) {
@@ -91,6 +94,25 @@
       }
     }
 
+    function paintDeepStars(g) {
+      var area = W * H;
+      for (var k = 0, n = Math.round(area / 2600); k < n; k++) {
+        g.globalAlpha = Math.pow(Math.random(), 2) * .45 + .06;
+        g.fillStyle = Math.random() < .8 ? '#f4f6ff' : tint();
+        var s = Math.random() < .85 ? .5 : .8;
+        g.fillRect(Math.random() * W, Math.random() * H, s, s);
+      }
+      for (var m = 0, mn = Math.round(area / 45000); m < mn; m++) {
+        g.globalAlpha = rnd(.35, .7); g.fillStyle = '#f7f8ff';
+        g.beginPath(); g.arc(Math.random() * W, Math.random() * H, rnd(.5, .85), 0, 6.2832); g.fill();
+      }
+      g.globalAlpha = 1;
+      bright = [];
+      for (var b = 0, bn = Math.max(4, Math.round(area / 150000)); b < bn; b++) {
+        bright.push({ x: Math.random() * W, y: Math.random() * H, r: rnd(.6, 1), c: '#f4f6ff', ph: rnd(0, 6.28), sp: rnd(.3, .8), spike: false });
+      }
+    }
+
     function spawn(now) {
       var fromLeft = Math.random() < .5;
       var ang = (fromLeft ? 1 : -1) * rnd(.45, .75);
@@ -100,6 +122,7 @@
         vx: Math.sin(ang) * speed, vy: Math.cos(ang) * speed,
         len: rnd(110, 260), life: life, age: 0, w: rnd(1, 1.8)
       });
+      if (deep) { meteors[meteors.length - 1].len *= .6; meteors[meteors.length - 1].w = rnd(.7, 1.1); nextMeteor = now + rnd(14000, 32000); return; }
       nextMeteor = now + rnd(2200, 6500);
       if (Math.random() < .12) nextMeteor = now + rnd(250, 700);
     }
@@ -110,7 +133,7 @@
       g.clearRect(0, 0, W, H);
       var t = ts / 1000;
       for (var i = 0; i < bright.length; i++) {
-        var s = bright[i], a = .55 + .45 * Math.sin(t * s.sp + s.ph);
+        var s = bright[i], a = deep ? .7 + .3 * Math.sin(t * s.sp + s.ph) : .55 + .45 * Math.sin(t * s.sp + s.ph);
         g.globalAlpha = a;
         var gl = g.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 4);
         gl.addColorStop(0, s.c); gl.addColorStop(.25, s.c); gl.addColorStop(1, 'rgba(255,255,255,0)');
@@ -143,7 +166,7 @@
       if (document.hidden) { last = ts; return; }
       var dt = Math.min(.05, (ts - (last || ts)) / 1000);
       last = ts;
-      if (!nextMeteor) nextMeteor = ts + rnd(800, 2500);
+      if (!nextMeteor) nextMeteor = ts + (deep ? rnd(6000, 15000) : rnd(800, 2500));
       if (ts > nextMeteor) spawn(ts);
       for (var i = meteors.length - 1; i >= 0; i--) {
         var m = meteors[i];

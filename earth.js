@@ -92,7 +92,7 @@
     els.stage.appendChild(els.loading);
     renderMe();
     renderLegend();
-    if (window.QZSky) window.QZSky.mount(els.sky);
+    if (window.QZSky) window.QZSky.mount(els.sky, { deep: true });
     barHeight();
   }
   function barHeight() { var b = root.querySelector('.bar'); if (b) root.style.setProperty('--bar-h', b.offsetHeight + 'px'); }
@@ -587,7 +587,7 @@
         .backgroundColor('rgba(0,0,0,0)')
         .globeImageUrl('img/earth.jpg?v=1')
         .bumpImageUrl('img/earth-bump.jpg?v=1')
-        .showAtmosphere(true).atmosphereColor('#7cb6ff').atmosphereAltitude(.18)
+        .showAtmosphere(true).atmosphereColor('#8ec5ff').atmosphereAltitude(.13)
         .polygonSideColor(function () { return 'rgba(0,0,0,0)'; })
         .polygonsTransitionDuration(180)
         .polygonLabel(function (d) { return tipHtml(d.properties.name, gstat(d)); })
@@ -607,57 +607,137 @@
       G.polygonsData(feats);
       G.pointsData(countries.filter(function (c) { return !c.poly; }));
       var ctl = G.controls();
-      ctl.autoRotateSpeed = .3; ctl.minDistance = 125; ctl.maxDistance = 700;
-      G.pointOfView({ lat: 26, lng: 104, altitude: 2.3 });
-      dayNightGL();
+      ctl.autoRotateSpeed = .3; ctl.minDistance = 106; ctl.maxDistance = 700;
+      G.pointOfView(homePov());
+      realEarth();
       glState = true;
     } catch (e) { G = null; glState = false; }
     return glState;
   }
-  /* real day and night: lit where the sun is up right now, city lights where it is night */
-  var sunU = null, sunTimer = 0;
-  function sunDir() {
-    var s = window.QZSun.at(), p = G.getCoords(s.lat, s.lng, 0), n = Math.hypot(p.x, p.y, p.z) || 1;
-    return [p.x / n, p.y / n, p.z / n];
+  /* Where you are, roughly, from the device clock: the globe opens over your side of the world, like the iPhone wallpaper */
+  function homePov() {
+    var tz = '';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { /* old browser */ }
+    if (/^Asia\/(Shanghai|Chongqing|Chungking|Harbin|Urumqi|Kashgar|Hong_Kong|Macau|Taipei)$|^PRC$|^ROC$/.test(tz)) return { lat: 26, lng: 104, altitude: 2.3 };
+    var south = /^(Australia|Antarctica)\/|^Pacific\/(Auckland|Fiji)|^America\/(Sao_Paulo|Argentina|Santiago|Montevideo|Asuncion|Lima|La_Paz)|^Africa\/(Johannesburg|Maputo|Harare|Windhoek)/.test(tz);
+    var lng = -new Date().getTimezoneOffset() / 4;
+    return { lat: south ? -25 : 35, lng: ((lng + 540) % 360) - 180, altitude: 2.3 };
   }
-  function dayNightGL() {
-    if (!window.QZSun || !G || typeof G.getCoords !== 'function') return;
+
+  /* ---------- the real Earth: today's day and night, clouds, and sharp NASA imagery up close ---------- */
+  var TILE_URL = function (x, y, l) { return 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_NextGeneration/default/GoogleMapsCompatible_Level8/' + l + '/' + y + '/' + x + '.jpeg'; };
+  var sunU = { value: null }, nightU = { value: null }, sunTimer = 0, globeMesh = null, tileGroup = null, clouds = null, tilesOn = false, curAlt = 2.3, wasNear = false, t0 = Date.now();
+  var DN_HEAD = [
+    'uniform sampler2D qzNight;', 'uniform vec3 qzSun;', 'varying vec3 qzN;',
+    'vec2 qzUv(vec3 n) {',
+    '  float lat = asin(clamp(n.y, -1.0, 1.0));',
+    '  float lng = 1.5707963 - atan(n.z, n.x);',
+    '  return vec2(fract((lng + 3.1415927) / 6.2831853), lat / 3.1415927 + 0.5);',
+    '}'].join('\n');
+  var DN_GROUND = [
+    'vec3 qzM = normalize(qzN);',
+    'float qzS = dot(qzM, qzSun);',
+    'float qzK = smoothstep(-0.09, 0.09, qzS);',
+    'vec3 qzDay = gl_FragColor.rgb * (0.6 + 0.4 * smoothstep(0.0, 0.5, qzS));',
+    'vec3 qzNightC = pow(linearToOutputTexel(texture2D(qzNight, qzUv(qzM))).rgb, vec3(1.35)) * 1.2;',
+    'float qzGlow = max(0.0, 1.0 - abs(qzS) / 0.1) * 0.1;',
+    'gl_FragColor.rgb = mix(qzNightC, qzDay, qzK) + vec3(1.0, 0.6, 0.35) * qzGlow;'].join('\n');
+  var DN_CLOUD = [
+    'float qzS = dot(normalize(qzN), qzSun);',
+    'gl_FragColor.rgb *= 0.18 + 0.82 * smoothstep(-0.06, 0.35, qzS);',
+    'gl_FragColor.a *= mix(0.08, 1.0, smoothstep(-0.12, 0.08, qzS));'].join('\n');
+  /* teach a material about the sun: lit where it is day, city lights where it is night */
+  function patchDN(mat, kind) {
+    if (!mat || mat.qzKind) return;
+    mat.qzKind = kind;
+    mat.onBeforeCompile = function (sh) {
+      sh.uniforms.qzNight = nightU; sh.uniforms.qzSun = sunU;
+      sh.vertexShader = 'varying vec3 qzN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n\tqzN = normalize(mat3(modelMatrix) * normal);');
+      sh.fragmentShader = DN_HEAD + '\n' + sh.fragmentShader.replace('#include <dithering_fragment>', (kind === 'cloud' ? DN_CLOUD : DN_GROUND) + '\n#include <dithering_fragment>');
+    };
+    mat.customProgramCacheKey = function () { return 'qz-' + kind; };
+    mat.needsUpdate = true;
+  }
+  function setSun() {
+    var s = window.QZSun.at(), p = G.getCoords(s.lat, s.lng, 0), n = Math.hypot(p.x, p.y, p.z) || 1;
+    sunU.value.set(p.x / n, p.y / n, p.z / n);
+  }
+  /* a texture made from one of our pictures, borrowing the globe's own texture type */
+  function textureFrom(img, data) {
+    var map = G.globeMaterial().map, t = map.clone();
+    if (t.source && t.source.constructor) t.source = new t.source.constructor(img); else t.image = img;
+    if (data) t.colorSpace = '';
+    t.needsUpdate = true;
+    return t;
+  }
+  function onZoomGL(pov) {
+    if (!pov || !G) return;
+    var alt = curAlt = pov.altitude, ctl = G.controls();
+    ctl.rotateSpeed = Math.min(1, alt * .45 + .04);
+    ctl.zoomSpeed = Math.min(1, 300 * alt / (100 * (1 + alt)));
+    if (alt < 1 && ctl.autoRotate) ctl.autoRotate = false;
+    var near = alt < .8;
+    if (near !== wasNear) { wasNear = near; refreshGL(); }
+    if (clouds) clouds.material.opacity = Math.max(.45, Math.min(1, .4 + alt * .9));
+    if (!tilesOn && alt < .5) { tilesOn = true; G.globeTileEngineUrl(TILE_URL); }
+    else if (tilesOn && alt > .7) { tilesOn = false; G.globeTileEngineUrl(null); }
+  }
+  function realEarth() {
+    if (typeof G.getCoords !== 'function') return;
+    var scene = G.scene();
+    G.globeTileEngineMaxLevel(8);
+    G.onZoom(onZoomGL);
+    if (!window.QZSun) return;
+    sunU.value = G.camera().position.clone();
+    setSun();
+    clearInterval(sunTimer); sunTimer = setInterval(setSun, 30000);
+    patchDN(G.globeMaterial(), 'ground');
+    /* globe.gl builds its scene a moment after it starts, so look for the parts until they are there */
+    function findParts() {
+      if (globeMesh && tileGroup) return true;
+      scene.traverse(function (o) {
+        if (!globeMesh && o.material && o.material === G.globeMaterial()) {
+          globeMesh = o;
+          /* keep the whole-Earth picture underneath the sharp tiles, so a tile that is still loading never leaves a hole */
+          o.scale.setScalar(.998);
+          try { Object.defineProperty(o, 'visible', { get: function () { return true; }, set: function () {}, configurable: true }); } catch (e) { /* fine without */ }
+        }
+        if (!tileGroup && o.thresholds && 'tileUrl' in o) tileGroup = o;
+      });
+      return !!(globeMesh && tileGroup);
+    }
+    var before = scene.onBeforeRender;
+    scene.onBeforeRender = function () {
+      findParts();
+      if (tileGroup && tilesOn) tileGroup.children.forEach(function (t) { if (t.material && t.material.map) patchDN(t.material, 'ground'); });
+      if (clouds && globeMesh) clouds.rotation.y = globeMesh.rotation.y + (Date.now() - t0) / 1000 * .0004;
+      if (before) before.apply(this, arguments);
+    };
     var tries = 0;
     (function wait() {
       var mat = G.globeMaterial();
-      if (!mat || !mat.map || !mat.map.image) { if (++tries < 300) setTimeout(wait, 100); return; }
-      window.QZSun.load('img/earth-night.jpg?v=1').then(function (img) {
-        var night = mat.map.clone();
-        /* a clone shares the picture with the daytime map, so give it its own */
-        if (night.source && night.source.constructor) night.source = new night.source.constructor(img); else night.image = img;
-        night.needsUpdate = true;
-        sunU = { value: G.camera().position.clone() };
-        var d = sunDir(); sunU.value.set(d[0], d[1], d[2]);
-        mat.onBeforeCompile = function (sh) {
-          sh.uniforms.qzNight = { value: night };
-          sh.uniforms.qzSun = sunU;
-          sh.vertexShader = 'varying vec3 qzN;\n' + sh.vertexShader.replace('#include <beginnormal_vertex>',
-            '#include <beginnormal_vertex>\n\tqzN = normalize(mat3(modelMatrix) * objectNormal);');
-          sh.fragmentShader = 'uniform sampler2D qzNight;\nuniform vec3 qzSun;\nvarying vec3 qzN;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', [
-            'float qzS = dot(normalize(qzN), qzSun);',
-            'float qzK = smoothstep(-0.1, 0.1, qzS);',
-            'vec3 qzNightC = linearToOutputTexel(texture2D(qzNight, vMapUv)).rgb * 1.15;',
-            'float qzGlow = max(0.0, 1.0 - abs(qzS) / 0.1) * 0.2;',
-            'gl_FragColor.rgb = mix(qzNightC, gl_FragColor.rgb, qzK) + vec3(1.0, 0.55, 0.28) * qzGlow;',
-            '#include <dithering_fragment>'].join('\n'));
-        };
-        mat.customProgramCacheKey = function () { return 'qz-daynight'; };
-        mat.needsUpdate = true;
-        clearInterval(sunTimer);
-        sunTimer = setInterval(function () { var v = sunDir(); sunU.value.set(v[0], v[1], v[2]); }, 30000);
-      }, function () { /* no night picture: keep the plain daylight globe */ });
+      if (!mat.map || !mat.map.image || !findParts()) { if (++tries < 300) setTimeout(wait, 100); return; }
+      window.QZSun.load('img/earth-night.jpg?v=1').then(function (img) { nightU.value = textureFrom(img); }, function () {});
+      window.QZSun.load('img/clouds.jpg?v=1').then(function (img) {
+        if (!globeMesh) return;
+        var R = typeof G.getGlobeRadius === 'function' ? G.getGlobeRadius() : 100;
+        var cm = new mat.constructor({ color: 0xffffff, specular: 0x000000, shininess: 1, alphaMap: textureFrom(img, true), transparent: true, depthWrite: false });
+        clouds = new globeMesh.constructor(new globeMesh.geometry.constructor(R * 1.006, 96, 64), cm);
+        clouds.raycast = function () {};
+        clouds.renderOrder = -1;
+        clouds.rotation.y = globeMesh.rotation.y;
+        patchDN(cm, 'cloud');
+        cm.opacity = Math.max(.45, Math.min(1, .4 + curAlt * .9));
+        scene.add(clouds);
+      }, function () {});
     })();
   }
   function refreshGL() {
     if (!G) return;
     G.polygonCapColor(function (d) {
       var id = gid(d), v = vclass(gstat(d)), on = gHover === id || isPick(id);
-      if (v) return 'rgba(' + CAP[v].join(',') + ',' + (on ? .78 : .5) + ')';
+      /* up close the colour gets lighter, so the land underneath still shows */
+      if (v) return 'rgba(' + CAP[v].join(',') + ',' + (curAlt < .8 ? (on ? .45 : .24) : (on ? .78 : .5)) + ')';
       return isPick(id) ? 'rgba(255,255,255,.26)' : gHover === id ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,0)';
     }).polygonStrokeColor(function (d) {
       var id = gid(d);
@@ -669,7 +749,7 @@
       var v = vclass(countryStat(d.id));
       return isPick(d.id) ? '#ffffff' : v ? 'rgb(' + CAP[v].join(',') + ')' : 'rgba(255,255,255,.8)';
     });
-    G.controls().autoRotate = !reduced && !pick && state.level === 'globe';
+    G.controls().autoRotate = !reduced && !pick && state.level === 'globe' && curAlt >= 1;
   }
   function renderGlobe(back) {
     if (!initGL()) { renderGlobeSvg(); return; }
