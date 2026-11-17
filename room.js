@@ -202,7 +202,7 @@ function hot(obj, key, label) {
 
 /* the shared shell: floor, two walls, a window to the other one's city */
 function shell(g, o) {
-  const floorMat = M(0xffffff, { map: planks(o.floor, o.seed), roughness: .7 });
+  const floorMat = o.carpet ? M(0xffffff, { map: carpet('#' + new THREE.Color(o.carpet).getHexString(), o.seed), roughness: 1 }) : M(0xffffff, { map: planks(o.floor, o.seed), roughness: .7 });
   blk(g, [0, -.1, 0], [W, .1, D], floorMat, { cast: false });
   blk(g, [-.03, -.42, -.03], [W + .15, .32, D + .06], M(o.slab || 0x3a281d), { cast: false });
   const wall = M(o.wall, { roughness: .95 });
@@ -291,44 +291,88 @@ function burst(at) {
   }
 }
 
-/* ================================================================ Logan's room in Toronto (from his photo) */
+/* ================================================================ Logan's room in Toronto: his photo, with details from his 3D picture */
+function carpet(base, seed) {
+  const r = seeded(seed);
+  return canvasTex(512, 512, (g, w, h) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 26000; i++) {
+      const v = r();
+      g.fillStyle = v < .5 ? 'rgba(70,45,25,' + (.05 + r() * .08) + ')' : 'rgba(255,240,220,' + (.04 + r() * .07) + ')';
+      g.fillRect(r() * w, r() * h, 1 + r() * 1.5, 1 + r() * 1.5);
+    }
+  }, [3, 3]);
+}
+function suitcase(g, x, y, z, color, h) {
+  const s = new THREE.Group(); s.position.set(x, y, z); g.add(s);
+  const m = M(color, { roughness: .45 });
+  blk(s, [-.12, 0, -.2], [.24, h, .4], m, { r: .035 });
+  for (const dz of [-.12, 0, .12]) blk(s, [.115, .04, dz - .012], [.012, h - .08, .024], M(color, { roughness: .35 }), { cast: false });
+  const metal = M(0x9aa0a8, { metalness: .6, roughness: .3 });
+  for (const dz of [-.07, .07]) cyl(s, [-.06, h, dz], .008, .2, metal);
+  blk(s, [-.08, h + .19, -.08], [.04, .02, .16], M(0x1e1f22));
+  for (const dz of [-.15, .15]) ball(s, [0, .015, dz], .025, M(0x1e1f22));
+  return s;
+}
+function shoe(g, x, z, kind) {
+  const grp = new THREE.Group(); grp.position.set(x, 0, z); g.add(grp);
+  if (kind === 'boot') {
+    blk(grp, [-.15, 0, -.055], [.3, .035, .11], M(0x5a3a1c), { r: .015 });
+    blk(grp, [-.14, .03, -.05], [.27, .09, .1], M(0xc4893a, { roughness: .9 }), { r: .03 });
+    blk(grp, [.02, .03, -.05], [.11, .2, .1], M(0xc4893a, { roughness: .9 }), { r: .03 });
+    for (let i = 0; i < 4; i++) blk(grp, [.0 - i * .025, .12 - i * .02 + .06, -.035], [.012, .012, .07], M(0xf0c419), { cast: false });
+  } else {
+    blk(grp, [-.14, 0, -.05], [.28, .03, .1], M(0xf2f2ee), { r: .012 });
+    blk(grp, [-.13, .025, -.045], [.26, .07, .09], M(0xffffff, { roughness: .6 }), { r: .03 });
+    blk(grp, [-.02, .05, -.046], [.04, .05, .092], M(kind === 'red' ? 0xd23a3a : 0x2b2b2b), { cast: false });
+    blk(grp, [-.11, .09, -.03], [.12, .012, .06], M(kind === 'red' ? 0xd23a3a : 0x2b2b2b), { cast: false });
+  }
+  return grp;
+}
 function buildLogan(g) {
   const win = shell(g, { wall: 0x9eac96, floor: 0xc9a67b, seed: 7, wx: 2.05, rail: true });
   const white = M(0xeeeeea, { roughness: .55 }), black = M(0x1e1f22, { roughness: .6 }), pine = M(0xd8af78, { roughness: .7 });
   const navy = M(0x1f2738, { roughness: .9 }), ink = M(0x17181b, { roughness: .8 });
 
-  /* desk with a little shelf on the right */
+  /* white desk with a little shelf on the right */
   blk(g, [1.4, .72, .03], [1.3, .04, .62], white);
   for (const z of [.06, .6]) blk(g, [1.42, 0, z], [.035, .72, .035], white);
   for (const x of [2.2, 2.66]) blk(g, [x, 0, .05], [.025, .72, .6], white);
   for (const y of [.06, .32]) blk(g, [2.2, y, .05], [.485, .02, .6], white);
   blk(g, [2.26, .34, .12], [.32, .1, .3], black);
   blk(g, [2.25, .08, .1], [.36, .16, .4], M(0x2b2d31));
-  /* laptop */
-  blk(g, [1.5, .76, .1], [.38, .018, .27], black);
-  const lid = new THREE.Group(); lid.position.set(1.69, .778, .1); lid.rotation.x = -.18; g.add(lid);
-  blk(lid, [-.19, 0, -.012], [.38, .25, .012], black);
+  /* laptop up on a stand */
+  const stand = M(0xb7bcc2, { metalness: .6, roughness: .35 });
+  blk(g, [1.47, .76, .1], [.03, .09, .24], stand); blk(g, [1.79, .76, .1], [.03, .09, .24], stand);
+  const lt = new THREE.Group(); lt.position.set(1.645, .85, .23); lt.rotation.x = .22; g.add(lt);
+  blk(lt, [-.18, 0, -.13], [.36, .016, .26], black);
+  const lid = new THREE.Group(); lid.position.set(0, .016, -.13); lid.rotation.x = -1.4; lt.add(lid);
+  blk(lid, [-.18, 0, 0], [.36, .24, .01], black);
   /* the monitor that shows our countdown */
   const scr = screenTex();
-  blk(g, [1.95, .76, .14], [.2, .012, .12], M(0x26272b));
-  blk(g, [2.035, .772, .19], [.03, .16, .03], M(0x26272b));
+  blk(g, [1.98, .76, .14], [.2, .012, .12], M(0x26272b));
+  blk(g, [2.065, .772, .19], [.03, .16, .03], M(0x26272b));
   const bezel = blk(g, [1.86, .86, .17], [.5, .33, .025], M(0x141518));
   const face = new THREE.Mesh(new THREE.PlaneGeometry(.47, .3), new THREE.MeshBasicMaterial({ map: scr, toneMapped: false }));
   face.position.set(2.11, 1.025, .197); g.add(face);
   hot(bezel, 'screen'); hot(face, 'screen');
-  /* keyboard, bottles, little things */
-  blk(g, [1.72, .76, .4], [.42, .02, .14], M(0xe7e0d2), { r: .008 });
-  cyl(g, [1.47, .76, .14], .035, .22, M(0x2f3236, { metalness: .4, roughness: .4 }));
-  cyl(g, [1.56, .76, .2], .032, .2, M(0x2f63b0, { roughness: .3 }));
-  ball(g, [2.48, .79, .16], .03, M(0xf2efe6));
-  const disc = cdPlayer(g, [2.43, .76, .44], 0xc9ccd2);
+  /* keyboard, glasses, a thermos, a water bottle, the little round clock */
+  blk(g, [1.62, .76, .42], [.42, .02, .14], M(0xe7e0d2), { r: .008 });
+  for (let i = 0; i < 4; i++) blk(g, [1.65 + i * .09, .781, .45], [.035, .005, .035], M(0xe9733b), { cast: false });
+  const gl = M(0x1b1b1d, { metalness: .3, roughness: .4 });
+  for (const dx of [0, .08]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(.032, .005, 8, 24), gl); ring.rotation.x = -Math.PI / 2.4; ring.position.set(1.5 + dx, .79, .5); g.add(ring); }
+  cyl(g, [2.6, .76, .12], .032, .2, M(0x2f3236, { metalness: .4, roughness: .4 }));
+  cyl(g, [2.52, .76, .18], .03, .19, M(0x2f63b0, { roughness: .3 }));
+  ball(g, [2.48, .79, .3], .028, M(0xf2efe6));
+  const disc = cdPlayer(g, [2.43, .76, .48], 0xc9ccd2);
 
-  /* black drawers left of the desk */
+  /* black drawers left of the desk, and the see-through storage box in the corner */
   blk(g, [.94, 0, .03], [.44, .7, .46], ink);
   for (const y of [.23, .46]) blk(g, [.95, y, .49], [.42, .006, .006], M(0x0b0b0c), { cast: false });
   for (const y of [.13, .36, .59]) blk(g, [1.12, y, .49], [.08, .015, .015], M(0x55585e));
+  blk(g, [.05, 0, .1], [.5, .38, .62], M(0xa7afb6, { transparent: true, opacity: .85, roughness: .4 }));
 
-  /* office chair */
+  /* office chair with the green strap */
   const ch = new THREE.Group(); ch.position.set(2.02, 0, 1.0); ch.rotation.y = -.18; g.add(ch);
   for (let i = 0; i < 5; i++) {
     const a = i / 5 * Math.PI * 2, leg = blk(ch, [-.02, .05, 0], [.04, .025, .28], black);
@@ -342,7 +386,7 @@ function buildLogan(g) {
   blk(ch, [-.245, .66, .19], [.49, .05, .085], M(0x2fa36b), { cast: false });
   for (const s of [-1, 1]) blk(ch, [s * .26 - .02, .48, -.12], [.04, .2, .04], black);
 
-  /* bed along the right wall, pine frame, blue plaid sheet */
+  /* his bed along the right wall: pine frame, blue plaid sheet */
   const bx = W - 1.0, bz = .08, bl = 2.1;
   for (const x of [bx, W - .07]) {
     blk(g, [x, .2, bz], [.07, .12, bl], pine);
@@ -359,10 +403,15 @@ function buildLogan(g) {
   blk(g, [bx + .2, .52, bz + .2], [.5, .07, .38], M(0xdfe3c9), { r: .03 });
   blk(g, [bx + .12, .52, bz + .14], [.07, .012, .14], black);
   hot(mattress, 'bed');
-  /* shoes under the bed */
-  for (let i = 0; i < 3; i++) blk(g, [bx + .12 + i * .2, 0, bz + bl - .55], [.1, .08, .26], M(i === 1 ? 0x3a2a1e : 0x111214), { r: .03 });
+  /* pink slippers by the bed, waiting for her */
+  const sl = new THREE.Group(); g.add(sl);
+  for (const dz of [0, .13]) {
+    blk(sl, [bx - .32, 0, 1.2 + dz], [.26, .035, .1], M(0xf3c3c6, { roughness: 1 }), { r: .02 });
+    blk(sl, [bx - .32, .03, 1.205 + dz], [.13, .05, .09], M(0xf6cfd2, { roughness: 1 }), { r: .03 });
+  }
+  hot(sl, 'slippers');
 
-  /* hooks on the right wall with bags and the bunny keychain */
+  /* hooks on the right wall with bags and the bunny keychain; shoes lined up underneath */
   const hm = M(0xc9ccd0, { metalness: .6, roughness: .3 });
   for (const z of [2.42, 2.82, 3.22]) cyl(g, [W - .05, 1.86, z], .012, .05, hm);
   blk(g, [W - .19, 1.28, 2.28], [.14, .27, .3], ink, { r: .04 });
@@ -377,31 +426,57 @@ function buildLogan(g) {
   for (const s of [-1, 1]) { const e = ball(bunny, [0, .12, s * .016], .016, fur); e.scale.set(.7, 2.2, .7); }
   ball(bunny, [-.035, .075, -.012], .006, M(0x2a1d14)); ball(bunny, [-.035, .075, .012], .006, M(0x2a1d14));
   hot(bunny, 'plush');
+  [[2.36, 'boot'], [2.5, 'boot'], [2.72, 'red'], [2.86, 'red'], [3.06, 'red'], [3.2, 'red'], [3.4, 'black']].forEach(([z, k]) => shoe(g, W - .2, z, k));
 
-  /* clothes rack on the left */
+  /* the other pine bed frame on the left: no mattress, suitcases standing on it */
+  const fx0 = .05, fx1 = .98, fz0 = 1.3, fz1 = 3.45;
+  for (const x of [fx0, fx1 - .06]) blk(g, [x, .16, fz0], [.06, .12, fz1 - fz0], pine);
+  for (const x of [fx0, fx1 - .06]) { blk(g, [x, 0, fz0], [.06, .62, .06], pine); blk(g, [x, 0, fz1 - .06], [.06, .4, .06], pine); }
+  for (const y of [.36, .54]) blk(g, [fx0 + .06, y, fz0], [fx1 - fx0 - .12, .06, .05], pine);
+  for (let i = 0; i < 9; i++) blk(g, [fx0 + .06, .24, fz0 + .08 + i * .235], [fx1 - fx0 - .12, .025, .15], M(0xe2bf8c, { roughness: .75 }));
+  blk(g, [fx0 + .06, .26, fz1 - .06], [fx1 - fx0 - .12, .1, .05], pine);
+  const cases = new THREE.Group(); g.add(cases);
+  [[.3, 1.62, 0x22427f, .58], [.3, 2.02, 0x234885, .52], [.72, 1.82, 0x22427f, .46]].forEach(([x, z, col, h]) => suitcase(cases, x, .265, z, col, h));
+  suitcase(cases, .62, .265, 2.46, 0xf1f0ec, .5);
+  hot(cases, 'suitcase');
+  blk(g, [.2, .265, 2.85], [.5, .2, .4], M(0x8d939b, { roughness: .8 }), { r: .02 });
+
+  /* clothes rack with coats and bags */
   const rack = M(0x1a1b1e, { metalness: .5, roughness: .4 });
-  for (const z of [.95, 2.45]) {
-    cyl(g, [.5, 0, z], .014, 1.66, rack);
-    blk(g, [.32, .04, z - .015], [.36, .03, .03], rack);
-    ball(g, [.32, .03, z], .03, rack); ball(g, [.68, .03, z], .03, rack);
+  const rx = 1.32;
+  for (const z of [1.3, 2.6]) {
+    cyl(g, [rx, 0, z], .014, 1.66, rack);
+    blk(g, [rx - .18, .04, z - .015], [.36, .03, .03], rack);
+    ball(g, [rx - .18, .03, z], .03, rack); ball(g, [rx + .18, .03, z], .03, rack);
   }
-  const bar = new THREE.Mesh(new THREE.CylinderGeometry(.014, .014, 1.56, 10), rack);
-  bar.rotation.x = Math.PI / 2; bar.position.set(.5, 1.65, 1.7); g.add(bar);
-  const coats = [0x1f2433, 0x17181c, 0x3b404b, 0x23293a, 0x1a1c20, 0x55595f];
-  coats.forEach((c, i) => {
-    const z = 1.1 + i * .22, len = .7 + (i % 3) * .14;
-    blk(g, [.27, 1.6 - len, z - .05], [.46, len, .1], M(c, { roughness: 1 }), { r: .04 });
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(.014, .014, 1.36, 10), rack);
+  bar.rotation.x = Math.PI / 2; bar.position.set(rx, 1.65, 1.95); g.add(bar);
+  [0x1f2433, 0x17181c, 0x3b404b, 0x23293a, 0x1a1c20].forEach((col, i) => {
+    const z = 1.45 + i * .23, len = .7 + (i % 3) * .14;
+    blk(g, [rx - .23, 1.6 - len, z - .05], [.46, len, .1], M(col, { roughness: 1 }), { r: .04 });
   });
-  blk(g, [.44, .9, 2.34], [.14, .3, .3], M(0x6b3f22, { roughness: .55 }), { r: .04 });
-  blk(g, [.5, 1.2, 2.47], [.014, .42, .014], M(0x5a3520), { cast: false });
-  blk(g, [.42, 1.1, .98], [.17, .19, .3], M(0x5c6670), { r: .04 });
+  blk(g, [rx - .06, .9, 2.42], [.14, .3, .3], M(0x6b3f22, { roughness: .55 }), { r: .04 });
+  blk(g, [rx, 1.2, 2.55], [.014, .42, .014], M(0x5a3520), { cast: false });
+  blk(g, [rx - .08, 1.1, 1.3], [.17, .19, .3], M(0x5c6670), { r: .04 });
 
-  /* striped laundry basket and the storage box */
+  /* striped laundry basket */
   const bm = M(0xffffff, { map: stripes(), roughness: 1, side: THREE.DoubleSide });
   const basket = new THREE.Mesh(new THREE.CylinderGeometry(.24, .22, .55, 4, 1, true), bm);
-  basket.rotation.y = Math.PI / 4; basket.position.set(1.32, .275, 2.05); basket.castShadow = true; g.add(basket);
-  blk(g, [1.17, .02, 1.9], [.3, .02, .3], M(0x3d4045), { cast: false });
-  blk(g, [.05, 0, .1], [.5, .38, .62], M(0xa7afb6, { transparent: true, opacity: .85, roughness: .4 }));
+  basket.rotation.y = Math.PI / 4; basket.position.set(1.98, .275, 2.25); basket.castShadow = true; g.add(basket);
+  blk(g, [1.83, .02, 2.1], [.3, .02, .3], M(0x3d4045), { cast: false });
+
+  /* small black side table: the camera on top, a pack of water underneath */
+  for (const x of [2.38, 2.78]) for (const z of [2.75, 3.13]) blk(g, [x, 0, z], [.022, .55, .022], black);
+  blk(g, [2.38, .53, 2.75], [.42, .025, .4], M(0xd9d9d6));
+  blk(g, [2.38, .03, 2.75], [.42, .02, .4], black);
+  const wm = new THREE.MeshPhysicalMaterial({ color: 0x9fd1ff, transmission: .6, roughness: .15, transparent: true, opacity: .75 });
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { cyl(g, [2.47 + i * .1, .05, 2.85 + j * .14], .04, .22, wm); cyl(g, [2.47 + i * .1, .27, 2.85 + j * .14], .015, .03, M(0x2d6fd4)); }
+  const cam = new THREE.Group(); cam.position.set(2.59, .555, 2.95); cam.rotation.y = -.5; g.add(cam);
+  blk(cam, [-.08, 0, -.05], [.16, .1, .09], M(0x1b1c1f), { r: .015 });
+  const lens = cyl(cam, [0, 0, 0], .035, .07, M(0x2a2b2f, { metalness: .4, roughness: .3 }));
+  lens.rotation.x = Math.PI / 2; lens.position.set(0, .05, .075);
+  blk(cam, [-.075, .1, -.03], [.04, .02, .04], M(0x1b1c1f));
+  hot(cam, 'camera');
 
   return { win, disc, screens: [scr] };
 }
@@ -659,6 +734,9 @@ function hotLabel(k) {
   if (k === 'cd') return playing ? 'CD 机 · 正在放《' + playing.title + '》' : 'CD 机 · 放首歌';
   if (k === 'screen') return '屏幕 · 我们的倒计时';
   if (k === 'plush') return roomOf === 'a' ? '小兔子挂件' : '小熊';
+  if (k === 'slippers') return '粉色拖鞋 · 等她来穿';
+  if (k === 'suitcase') return '行李箱 · 我们的倒计时';
+  if (k === 'camera') return '相机 · 咔嚓';
   if (k === 'bed') return lightsOn ? '床 · 关灯睡觉' : '床 · 起床开灯';
   return '';
 }
@@ -697,7 +775,15 @@ function act(k, at) {
   else if (k === 'cd') openMusic(true);
   else if (k === 'screen') showCountdownCard();
   else if (k === 'plush') { burst(at); toast(roomOf === me || !me ? '想你 💗' : '偷偷捏了一下 💗'); }
+  else if (k === 'slippers') { burst(at); toast('给你准备好了 🩷'); }
+  else if (k === 'suitcase') showCountdownCard();
+  else if (k === 'camera') flash();
   else if (k === 'bed') { lightsOn = !lightsOn; updateLights(); toast(lightsOn ? '早安 ☀️' : '晚安 🌙'); }
+}
+function flash() {
+  const v = $('veil'); v.style.background = '#fff'; v.style.transition = 'none'; v.style.opacity = '.85';
+  requestAnimationFrame(() => { v.style.transition = 'opacity .5s'; v.style.opacity = '0'; setTimeout(() => { v.style.transition = ''; }, 520); });
+  toast('咔嚓 📸');
 }
 let toastT = 0;
 function toast(text) {
