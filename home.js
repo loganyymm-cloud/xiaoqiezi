@@ -1,20 +1,8 @@
 (function () {
   'use strict';
 
-  /* stars */
-  var c = document.getElementById('stars'), dpr = Math.min(window.devicePixelRatio || 1, 2);
-  function stars() {
-    var w = window.innerWidth, hh = window.innerHeight;
-    c.width = Math.round(w * dpr); c.height = Math.round(hh * dpr);
-    var g = c.getContext('2d'); g.scale(dpr, dpr);
-    for (var i = 0, n = Math.round(w * hh / 5000); i < n; i++) {
-      g.globalAlpha = .2 + Math.random() * .6; g.fillStyle = '#fff';
-      var s = Math.random() < .12 ? 1.6 : 1;
-      g.fillRect(Math.random() * w, Math.random() * hh, s, s);
-    }
-  }
-  stars();
-  window.addEventListener('resize', stars);
+  /* night sky with shooting stars */
+  if (window.QZSky) window.QZSky.mount(document.querySelector('.sky'));
 
   /* the little eggplant from the game */
   var EGG = ['....gG.....', '...gGGg....', '..GGGGGG...', '..GgPPgG...', '..KPPPPK...', '.KPLPPPPK..', '.KPLPPPPK..', 'KPLPPPPPPK.', 'KPPePPePPK.', 'KPrPPPPrPK.', 'KPPPPPPPpK.', 'KPPPPPPppK.', '.KPPPPppK..', '..KKKKKK...'];

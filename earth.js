@@ -52,7 +52,8 @@
   var GEAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3.9a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.5 2.5a7.6 7.6 0 0 0-2.6 1.5l-2.3-.9-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-.9a7.6 7.6 0 0 0 2.6 1.5l.5 2.5h4l.5-2.5a7.6 7.6 0 0 0 2.6-1.5l2.3.9 2-3.4z"/></svg>';
 
   function buildShell() {
-    els.stars = h('canvas', { 'aria-hidden': 'true' });
+    els.sky = h('div', { class: 'sky', 'aria-hidden': 'true' });
+    els.globe = h('div', { class: 'globe3d', hidden: true });
     els.crumbs = h('nav', { class: 'crumbs', 'aria-label': '位置' });
     els.meA = h('button', { type: 'button', 'data-who': 'a', onclick: function () { setMe('a'); } });
     els.meB = h('button', { type: 'button', 'data-who': 'b', onclick: function () { setMe('b'); } });
@@ -73,7 +74,7 @@
     els.find = h('form', { class: 'find', role: 'search', onsubmit: function (ev) { ev.preventDefault(); find(els.findIn.value); } }, [
       h('label', { class: 'sr', for: 'qz-find' }, '搜国家或省份'), els.findIn, els.findList, h('button', { class: 'btn btn-s', type: 'submit' }, '去')
     ]);
-    root.appendChild(h('div', { class: 'sky' }, els.stars));
+    root.appendChild(els.sky);
     root.appendChild(h('header', { class: 'bar' }, [
       h('a', { class: 'home', href: './' }, ['←', h('span', null, '首页')]),
       h('div', { class: 'titles' }, [h('h1', null, '我们的地球'), els.crumbs]),
@@ -81,6 +82,7 @@
       els.gear
     ]));
     root.appendChild(els.stage);
+    els.stage.appendChild(els.globe);
     [els.find, els.hint, els.legend, els.count, els.banner, els.card].forEach(function (x) { els.stage.appendChild(x); });
     document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && pick && !document.querySelector('.dlg, .lb')) clearPick(); });
     root.appendChild(els.tip);
@@ -90,7 +92,7 @@
     els.stage.appendChild(els.loading);
     renderMe();
     renderLegend();
-    drawStars();
+    if (window.QZSky) window.QZSky.mount(els.sky);
     barHeight();
   }
   function barHeight() { var b = root.querySelector('.bar'); if (b) root.style.setProperty('--bar-h', b.offsetHeight + 'px'); }
@@ -114,21 +116,6 @@
       els.legend.appendChild(h('span', null, [h('i', { style: 'background:' + x[0] }), x[1]]));
     });
   }
-  function drawStars() {
-    var c = els.stars, dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var w = window.innerWidth, hh = window.innerHeight;
-    c.width = Math.round(w * dpr); c.height = Math.round(hh * dpr);
-    var g = c.getContext('2d');
-    g.scale(dpr, dpr);
-    var n = Math.round(w * hh / 6000);
-    for (var i = 0; i < n; i++) {
-      g.globalAlpha = .2 + Math.random() * .6;
-      g.fillStyle = '#fff';
-      var s = Math.random() < .12 ? 1.6 : 1;
-      g.fillRect(Math.random() * w, Math.random() * hh, s, s);
-    }
-  }
-
   function toast(msg) {
     if (els.toast) els.toast.remove();
     els.toast = h('div', { class: 'toast', role: 'status' }, msg);
@@ -294,6 +281,7 @@
     if (pick && pick.id === id) { nav(hash); return; }
     pick = { id: id, hash: hash, label: label || info(id).name, leaf: /^#[cr]-/.test(hash) };
     if (globe) globe.idle = Date.now();
+    stopSpin();
     renderCard();
     restyle();
   }
@@ -457,6 +445,7 @@
   function size() { var r = els.stage.getBoundingClientRect(); W = Math.max(320, r.width); H = Math.max(320, r.height); }
   function freshSvg() {
     if (globe.timer) { globe.timer.stop(); globe.timer = null; }
+    if (G) { els.globe.hidden = true; G.pauseAnimation(); }
     globe.draw = null; globe.paint = null;
     cur = {};
     if (svg) svg.remove();
@@ -504,14 +493,13 @@
   }
 
   /* ---------- globe ---------- */
-  function renderGlobe() {
+  function renderGlobeSvg() {
     freshSvg();
     var R = Math.min(W, H) * .4;
     var proj = globe.proj = d3.geoOrthographic().rotate(globe.rot).translate([W / 2, H / 2]).scale(R).clipAngle(90).precision(.4);
     var path = d3.geoPath(proj);
     gRoot.append('circle').attr('class', 'halo').attr('cx', W / 2).attr('cy', H / 2).attr('r', R * 1.25);
     var sphere = gRoot.append('path').datum({ type: 'Sphere' }).attr('class', 'sphere');
-    var grat = gRoot.append('path').datum(d3.geoGraticule10()).attr('class', 'grat');
     var goCountry = function (ev, d) { tap(ev, d.properties.id, '#w-' + d.properties.id, d.properties.name); };
     var land = gRoot.append('g').selectAll('path').data(world.features).join('path')
       .attr('aria-label', function (d) { return d.properties.name; })
@@ -537,7 +525,7 @@
       dots.attr('class', function (d) { return 'gdot ' + vclass(countryStat(d.id)) + (isPick(d.id) ? ' pick' : ''); });
     };
     globe.draw = function () {
-      sphere.attr('d', path); grat.attr('d', path);
+      sphere.attr('d', path);
       land.attr('d', path); cn.attr('d', path);
       var center = [-proj.rotate()[0], -proj.rotate()[1]];
       dots.each(function (d) {
@@ -569,6 +557,102 @@
     }
     fadeIn();
   }
+  /* ---------- the real-looking globe (WebGL), with the flat one above as a fallback ---------- */
+  var G = null, glState = null, gHover = null;
+  var CAP = { 'v-a': [143, 211, 255], 'v-b': [46, 200, 180], 'v-ab': [255, 77, 94] };
+  function canGL() {
+    try { var c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl'))); } catch (e) { return false; }
+  }
+  function esc(t) { return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function gid(d) { return d.properties.id; }
+  function gstat(d) { return d.properties.prov ? merge(provStat(d.properties.prov), stat('CHN')) : countryStat(d.properties.id); }
+  function tipHtml(name, s) {
+    var x = '<b>' + esc(name) + '</b>';
+    if (s.a && s.b) x += ' <span style="color:#ff4d5e">● 两个人都去过</span>';
+    else if (s.a) x += ' <span style="color:#8fd3ff">● ' + esc(nameOf('a')) + '</span>';
+    else if (s.b) x += ' <span style="color:#2ec8b4">● ' + esc(nameOf('b')) + '</span>';
+    return x;
+  }
+  function initGL() {
+    if (glState !== null) return glState;
+    glState = false;
+    if (typeof window.Globe !== 'function' || !canGL()) return false;
+    try {
+      G = new window.Globe(els.globe, { animateIn: false })
+        .backgroundColor('rgba(0,0,0,0)')
+        .globeImageUrl('img/earth.jpg?v=1')
+        .bumpImageUrl('img/earth-bump.jpg?v=1')
+        .showAtmosphere(true).atmosphereColor('#7cb6ff').atmosphereAltitude(.18)
+        .polygonSideColor(function () { return 'rgba(0,0,0,0)'; })
+        .polygonsTransitionDuration(180)
+        .polygonLabel(function (d) { return tipHtml(d.properties.name, gstat(d)); })
+        .onPolygonHover(function (d) { gHover = d ? gid(d) : null; els.globe.style.cursor = d ? 'pointer' : ''; refreshGL(); })
+        .onPolygonClick(function (d, ev) {
+          if (d.properties.prov) tap(ev, 'CHN', '#china', '中国');
+          else tap(ev, d.properties.id, '#w-' + d.properties.id, d.properties.name);
+        })
+        .pointLat(function (d) { return d.cp[1]; }).pointLng(function (d) { return d.cp[0]; })
+        .pointAltitude(.012).pointRadius(.4)
+        .pointLabel(function (d) { return tipHtml(d.name, countryStat(d.id)); })
+        .onPointClick(function (d, ev) { tap(ev, d.id, '#w-' + d.id, d.name); })
+        .onGlobeClick(function () { clearPick(); });
+      var feats = world.features.concat(chinaFC.features.map(function (f) {
+        return { type: 'Feature', geometry: f.geometry, properties: { id: 'CHN', prov: f.properties.id, name: '中国 · ' + f.properties.name } };
+      }));
+      G.polygonsData(feats);
+      G.pointsData(countries.filter(function (c) { return !c.poly; }));
+      var ctl = G.controls();
+      ctl.autoRotateSpeed = .3; ctl.minDistance = 125; ctl.maxDistance = 700;
+      G.pointOfView({ lat: 26, lng: 104, altitude: 2.3 });
+      glState = true;
+    } catch (e) { G = null; glState = false; }
+    return glState;
+  }
+  function refreshGL() {
+    if (!G) return;
+    G.polygonCapColor(function (d) {
+      var id = gid(d), v = vclass(gstat(d)), on = gHover === id || isPick(id);
+      if (v) return 'rgba(' + CAP[v].join(',') + ',' + (on ? .78 : .5) + ')';
+      return isPick(id) ? 'rgba(255,255,255,.26)' : gHover === id ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,0)';
+    }).polygonStrokeColor(function (d) {
+      var id = gid(d);
+      return isPick(id) ? 'rgba(255,255,255,.95)' : gHover === id ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.2)';
+    }).polygonAltitude(function (d) {
+      var id = gid(d);
+      return isPick(id) ? .03 : gHover === id ? .014 : .005;
+    }).pointColor(function (d) {
+      var v = vclass(countryStat(d.id));
+      return isPick(d.id) ? '#ffffff' : v ? 'rgb(' + CAP[v].join(',') + ')' : 'rgba(255,255,255,.8)';
+    });
+    G.controls().autoRotate = !reduced && !pick && state.level === 'globe';
+  }
+  function renderGlobe(back) {
+    if (!initGL()) { renderGlobeSvg(); return; }
+    freshSvg();
+    svg.remove(); svg = null;
+    els.globe.hidden = false;
+    G.width(W).height(H);
+    G.resumeAnimation();
+    refreshGL();
+    if (back && !reduced) { G.pointOfView(back, 0); G.pointOfView({ lat: back.lat, lng: back.lng, altitude: 2.3 }, 900); }
+  }
+  function stopSpin() {
+    if (!G) return;
+    var c = G.controls(), damp = c.enableDamping;
+    c.autoRotate = false;
+    c.enableDamping = false; c.update(); c.enableDamping = damp;
+  }
+  function flyGL(lat, lng, alt, done) {
+    stopSpin();
+    G.pointOfView({ lat: lat, lng: lng, altitude: alt }, reduced ? 0 : 1100);
+    setTimeout(done, reduced ? 0 : 1150);
+  }
+  function backPov(from) {
+    if (from.level === 'china' || from.level === 'prov') return { lat: 34, lng: 104, altitude: .75 };
+    if (from.level === 'country' && countryById[from.country]) { var c = countryById[from.country]; return { lat: c.cp[1], lng: c.cp[0], altitude: Math.max(.12, Math.min(1.8, (c.r || .3) * 2.6)) }; }
+    return null;
+  }
+
   function flyGlobe(center, scale1, done) {
     if (!globe.proj || !globe.draw || reduced) { done(); return; }
     if (globe.timer) { globe.timer.stop(); globe.timer = null; }
@@ -582,9 +666,13 @@
       return function (t) { proj.rotate(ir(t)).scale(is(t)); if (globe.draw) globe.draw(); };
     }).on('end', function () { globe.rot = [r1[0], Math.max(-75, Math.min(75, r1[1])), 0]; done(); });
   }
-  function flyToChina(done) { flyGlobe([104.3, 35], Math.min((W - 40) / .88, (H - 40) / .66), done); }
+  function flyToChina(done) {
+    if (G && !els.globe.hidden) { flyGL(34, 104, .75, done); return; }
+    flyGlobe([104.3, 35], Math.min((W - 40) / .88, (H - 40) / .66), done);
+  }
   function flyToCountry(cid, done) {
     var c = countryById[cid];
+    if (G && !els.globe.hidden) { flyGL(c.cp[1], c.cp[0], Math.max(.12, Math.min(1.8, (c.r || .3) * 2.6)), done); return; }
     var r = Math.max(.02, Math.min(c.r || .3, 1.2));
     flyGlobe(c.cp, Math.min(W, H) * .42 / Math.sin(r), done);
   }
@@ -723,7 +811,7 @@
   }
 
   function restyle() {
-    if (state.level === 'globe' && globe.paint) globe.paint();
+    if (state.level === 'globe') { if (G && !els.globe.hidden) refreshGL(); else if (globe.paint) globe.paint(); }
     else if (cur.restyle) cur.restyle();
   }
 
@@ -738,16 +826,33 @@
     provList.forEach(function (p) { add(p.name); });
     countries.forEach(function (c) { add(c.name); });
   }
+  var pendingPick = null;
+  function focusGlobe(lat, lng, r, id, hash, label) {
+    els.findIn.value = '';
+    els.findIn.blur();
+    var then = function () { tap(null, id, hash, label); };
+    if (G && !els.globe.hidden) {
+      stopSpin();
+      G.pointOfView({ lat: lat, lng: lng, altitude: Math.max(1.25, Math.min(2.3, (r || .3) * 3.2)) }, reduced ? 0 : 1000);
+      setTimeout(then, reduced ? 0 : 1050);
+    } else if (globe.proj) flyGlobe([lng, lat], globe.proj.scale(), then);
+    else then();
+  }
   function find(q) {
     q = (q || '').trim().toLowerCase();
     if (!q) return;
-    if (q === '中国' || q === 'china') { nav('#china'); return; }
+    if (q === '中国' || q === 'china') { focusGlobe(34, 104, .5, 'CHN', '#china', '中国'); return; }
     var hit = provList.filter(function (p) { return p.name.toLowerCase() === q; })[0];
-    if (hit) { nav('#p-' + hit.id); return; }
+    if (hit) {
+      els.findIn.value = '';
+      pendingPick = { id: hit.id, hash: '#p-' + hit.id, label: hit.name };
+      nav('#china');
+      return;
+    }
     var c = countries.filter(function (x) { return x.name.toLowerCase() === q || x.en.toLowerCase() === q; })[0]
       || countries.filter(function (x) { return x.name.toLowerCase().indexOf(q) === 0 || x.en.toLowerCase().indexOf(q) === 0; })[0]
       || countries.filter(function (x) { return x.name.toLowerCase().indexOf(q) >= 0 || x.en.toLowerCase().indexOf(q) >= 0; })[0];
-    if (c) { els.findIn.value = ''; nav('#w-' + c.id); return; }
+    if (c) { focusGlobe(c.cp[1], c.cp[0], c.r, c.id, '#w-' + c.id, c.name); return; }
     toast('没找到“' + q + '”，换个写法试试');
   }
 
@@ -776,12 +881,15 @@
     pick = null; els.card.hidden = true;
     var fail = function () { toast('地图没加载出来，刷新一下试试'); done(); };
     if (to.level === 'globe') {
-      closePanel(); state = { level: 'globe' }; renderGlobe(); after(); done();
+      closePanel(); var back = backPov(from); state = { level: 'globe' }; renderGlobe(back); after(); done();
       return;
     }
     if (to.level === 'china') {
       closePanel();
-      var go = function () { state = { level: 'china' }; renderChina(true); after(); done(); };
+      var go = function () {
+        state = { level: 'china' }; renderChina(true); after(); done();
+        if (pendingPick) { var pp = pendingPick; pendingPick = null; tap(null, pp.id, pp.hash, pp.label); }
+      };
       if (from.level === 'globe') flyToChina(go); else go();
       return;
     }
@@ -1078,9 +1186,9 @@
     window.addEventListener('resize', function () {
       clearTimeout(rt);
       rt = setTimeout(function () {
-        drawStars(); barHeight();
+        barHeight();
         var s = state;
-        if (s.level === 'globe') renderGlobe();
+        if (s.level === 'globe') renderGlobe(null);
         else if (s.level === 'china') renderChina(false);
         else if (s.level === 'prov') loadProv(s.prov).then(function (fc) { renderProvince(s.prov, fc, false); });
         else if (s.level === 'country') loadCountry(s.country).then(function (fc) { renderCountry(s.country, fc, false); });
