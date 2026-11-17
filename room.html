@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>小屋</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600&display=swap">
+<link rel="stylesheet" href="room.css?v=1">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div class="stage" id="stage" aria-hidden="true"></div>
+<div class="veil" id="veil"></div>
+
+<header class="bar">
+  <a class="back" id="back" href="earth.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    <span>地球</span>
+  </a>
+  <div class="title">
+    <p class="kicker" id="kicker">A LITTLE HOME</p>
+    <h1 id="room-name">小屋</h1>
+    <p class="sub" id="room-sub"></p>
+  </div>
+  <div class="tools">
+    <button class="pill" id="go-other" type="button"></button>
+    <button class="round" id="lights" type="button" aria-pressed="true" aria-label="开关灯">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>
+    </button>
+  </div>
+</header>
+
+<p class="presence" id="presence" hidden></p>
+<p class="hint" id="hint">点窗户去 TA 那儿 · 点 CD 机放歌 · 拖动转一转，双指或滚轮缩放</p>
+<div class="tip" id="tip" role="status" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<div class="mini" id="mini" hidden>
+  <span class="disc" aria-hidden="true"></span>
+  <button class="mini-title" id="mini-open" type="button"></button>
+  <button class="mini-x" id="mini-stop" type="button" aria-label="停止">■</button>
+</div>
+
+<aside class="music" id="music" aria-hidden="true" aria-label="CD 机">
+  <div class="m-head">
+    <div><p class="kicker">CD PLAYER</p><h2>我们的歌</h2></div>
+    <button class="x" id="music-close" type="button" aria-label="关闭">×</button>
+  </div>
+  <div class="m-body">
+    <div class="player" id="player"><p class="empty">还没有在放歌。从下面选一首，或者贴一个链接进来。</p></div>
+    <p class="now-by" id="now-by"></p>
+    <form class="m-form" id="add-form">
+      <label for="song-url">加一首歌</label>
+      <textarea id="song-url" rows="2" placeholder="粘贴分享链接：网易云 / Spotify / Apple Music / YouTube"></textarea>
+      <div class="row">
+        <input id="song-title" type="text" maxlength="60" placeholder="歌名（可不填）" autocomplete="off">
+        <button class="btn" type="submit">放进 CD 机</button>
+      </div>
+      <p class="m-msg" id="add-msg" role="status"></p>
+    </form>
+    <form class="m-form" id="search-form">
+      <label for="song-q">找歌</label>
+      <div class="row">
+        <input id="song-q" type="search" placeholder="歌名或歌手" autocomplete="off">
+        <button class="btn ghost" type="submit" data-site="163">网易云</button>
+        <button class="btn ghost" type="button" id="search-sp">Spotify</button>
+      </div>
+      <p class="m-note">在那边找到歌，点「分享 → 复制链接」，再贴到上面。</p>
+    </form>
+    <h3 class="m-h">歌单 <span id="song-n"></span></h3>
+    <ol class="songs" id="songs"></ol>
+  </div>
+</aside>
+
+<div class="card" id="card" hidden></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js?v=1"></script>
+<script src="daynight.js?v=1"></script>
+<script type="module" src="room.js?v=1"></script>
+</body>
+</html>

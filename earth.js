@@ -41,6 +41,12 @@
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function today() { var d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
   function nameOf(w) { return PEOPLE[w] || (w === 'a' ? 'Logan' : '茄子萌'); }
+  /* our two little rooms: Logan in Toronto, her in New Jersey */
+  var HOMES = [
+    { who: 'a', country: 'CAN', region: 'CAN-682', lng: -79.38, lat: 43.65 },
+    { who: 'b', country: 'USA', region: 'USA-3558', lng: -74.45, lat: 40.35 }
+  ];
+  function goRoom(who) { location.href = 'room.html#' + who; }
   function count(o) { return o ? Object.keys(o).length : 0; }
   function whoColor(w) { return w === 'b' ? 'var(--b)' : 'var(--a)'; }
 
@@ -218,13 +224,17 @@
       db = fb.firestore(app);
       FV = fb.firestore.FieldValue; FP = fb.firestore.FieldPath;
     } catch (e) { db = null; showBanner('连不上同步数据库，现在只能看地图，记录存不了。'); return; }
+    var seen = false;
     db.collection('places').onSnapshot(function (snap) {
+      /* the rooms' music list and who-is-home also live here; they don't change the map */
+      if (seen && typeof snap.docChanges === 'function' && snap.docChanges().every(function (ch) { return ch.doc.id === '_rooms' || ch.doc.id === '_music'; })) return;
+      seen = true;
       var next = {};
       snap.forEach(function (d) {
         if (d.id === '_people') {
           var p = d.data() || {};
           PEOPLE = { a: p.a || 'Logan', b: p.b || '茄子萌' };
-        } else next[d.id] = d.data() || {};
+        } else if (d.id.charAt(0) !== '_') next[d.id] = d.data() || {};
       });
       live.places = next;
       hideBanner();
@@ -889,6 +899,17 @@
       .attr('y', function (d) { var p = proj(d.properties.cp); return p ? p[1] : -999; })
       .attr('dy', '.35em')
       .text(function (d) { return opt.label(d); });
+    var pins = null;
+    if (opt.homes && opt.homes.length) {
+      pins = gRoot.append('g').selectAll('g').data(opt.homes).join('g')
+        .attr('class', function (d) { return 'home-pin who-' + d.who; })
+        .attr('role', 'link').attr('tabindex', 0)
+        .on('click', function (ev, d) { ev.stopPropagation(); goRoom(d.who); })
+        .on('keydown', function (ev, d) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); goRoom(d.who); } });
+      pins.append('path').attr('class', 'pin-body').attr('d', 'M0,0 C-5,-9 -15,-15 -15,-26 A15,15 0 1 1 15,-26 C15,-15 5,-9 0,0 Z');
+      pins.append('path').attr('class', 'pin-house').attr('d', 'M-7.5,-25 L0,-32.5 L7.5,-25 L7.5,-18 L-7.5,-18 Z M-2.2,-18 L-2.2,-22.5 L2.2,-22.5 L2.2,-18 Z');
+      pins.append('text').attr('class', 'pin-label').attr('x', 19).attr('y', -22);
+    }
     var title = null;
     if (opt.direct) title = gRoot.append('text').attr('class', 'globe-tag').attr('x', (W - right) / 2).attr('y', pad + 12).text(opt.title + ' · 点任意地方打开记录');
     function sizeAll(k) {
@@ -900,12 +921,17 @@
           return areas[i] * k * k > w * w * .55 ? null : 'none';
         });
       if (title) title.attr('font-size', 15 / k);
+      if (pins) pins.attr('transform', function (d) { var p = proj([d.lng, d.lat]); return p ? 'translate(' + p[0] + ',' + p[1] + ') scale(' + (1 / k) + ')' : 'translate(-999,-999)'; });
     }
     cur.restyle = function () {
       shapes.attr('class', function (d) {
         var id = opt.idOf(d), s = stat(id);
         return 'city ' + vclass(s) + (s.has ? ' has' : '') + (!opt.direct && state.city === id ? ' sel' : '') + (isPick(id) ? ' pick' : '');
       });
+      if (pins) {
+        pins.attr('aria-label', function (d) { return '进入 ' + nameOf(d.who) + ' 的小屋'; });
+        pins.select('text').text(function (d) { return nameOf(d.who) + ' 的小屋'; });
+      }
       sizeAll(zoomK);
     };
     cur.restyle();
@@ -931,7 +957,8 @@
       idOf: function (d) { return one ? cid : d.properties.id; },
       openHash: function (d) { return '#r-' + (one ? cid : d.properties.id); },
       tipName: function (d) { return one ? c.name : d.properties.name + (d.properties.en && d.properties.en !== d.properties.name ? '  ' + d.properties.en : ''); },
-      label: function (d) { return d.properties.name; }
+      label: function (d) { return d.properties.name; },
+      homes: HOMES.filter(function (x) { return x.country === cid; })
     }, animate);
   }
 
@@ -1155,6 +1182,9 @@
       h('button', { class: 'x', type: 'button', 'aria-label': '关闭', onclick: closeCity }, '×')
     ]));
     els.panel.appendChild(h('div', { class: 'visits' }, [pan.visA, pan.visB, pan.both]));
+    HOMES.filter(function (x) { return x.region === cid; }).forEach(function (x) {
+      els.panel.appendChild(h('a', { class: 'room-btn', href: 'room.html#' + x.who }, '🏠 进入 ' + nameOf(x.who) + ' 的小屋'));
+    });
     pan.body = h('div', { class: 'p-body' }, [
       h('section', { class: 'sec' }, [
         h('div', { class: 'sec-h' }, [h('h3', null, '照片'), pan.photoN, h('button', { class: 'btn btn-s act', type: 'button', onclick: function () { file.click(); } }, '+ 上传照片'), file]),

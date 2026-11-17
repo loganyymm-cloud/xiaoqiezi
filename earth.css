@@ -234,3 +234,14 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* our two little rooms on the map */
+.home-pin { cursor: pointer; outline: none; }
+.home-pin .pin-body { fill: #f3b56f; stroke: #2a1a10; stroke-width: 1.5; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .5)); }
+.home-pin.who-a .pin-body { fill: var(--a); }
+.home-pin.who-b .pin-body { fill: var(--b); }
+.home-pin .pin-house { fill: #2a1a10; fill-rule: evenodd; }
+.home-pin .pin-label { font-size: 13px; font-weight: 700; fill: #fff; paint-order: stroke; stroke: rgba(10, 6, 14, .85); stroke-width: 3.5px; stroke-linejoin: round; }
+.home-pin:hover .pin-body, .home-pin:focus-visible .pin-body { stroke: #fff; stroke-width: 2.5; }
+.room-btn { flex: none; display: block; margin: 0 20px 14px; padding: 11px 14px; border-radius: 14px; background: linear-gradient(135deg, #f3c58d, #e79b78); color: #2a1408; font-weight: 700; font-size: 15px; text-align: center; text-decoration: none; }
+.room-btn:hover { filter: brightness(1.06); }

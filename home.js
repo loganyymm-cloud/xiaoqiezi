@@ -236,11 +236,15 @@
       if (!snap.exists) return;
       try { cdState = JSON.parse(snap.data().state); showCountdown(cdState); } catch (err) { /* keep the page copy */ }
     }, function () {});
+    var seenPlaces = false;
     db.collection('places').onSnapshot(function (snap) {
+      if (seenPlaces && typeof snap.docChanges === 'function' && snap.docChanges().every(function (ch) { return ch.doc.id === '_rooms' || ch.doc.id === '_music'; })) return;
+      seenPlaces = true;
       var lit = 0, photos = 0;
       snap.forEach(function (d) {
         var x = d.data() || {};
         if (d.id === '_people') { names = x; return; }
+        if (d.id.charAt(0) === '_') return;
         var a = !!(x.visited && x.visited.a), b = !!(x.visited && x.visited.b);
         for (var k in (x.spots || {})) { if (x.spots[k] && x.spots[k].a) a = true; if (x.spots[k] && x.spots[k].b) b = true; }
         if (a || b) lit++;
