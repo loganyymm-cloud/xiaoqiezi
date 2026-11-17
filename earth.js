@@ -439,12 +439,13 @@
       })
       .on('end', function () { globe.drag = false; globe.idle = Date.now(); }));
     globe.idle = Date.now();
+    svg.on('pointermove.idle pointerdown.idle', function () { globe.idle = Date.now(); });
     if (!reduced) {
       var last = 0;
       globe.timer = d3.timer(function (t) {
         var dt = t - last; last = t;
         if (globe.drag || Date.now() - globe.idle < 2500 || document.hidden) return;
-        globe.rot = [globe.rot[0] + dt * .006, globe.rot[1], 0];
+        globe.rot = [globe.rot[0] + Math.min(dt, 50) * .0016, globe.rot[1], 0];
         proj.rotate(globe.rot); globe.draw();
       });
     }
