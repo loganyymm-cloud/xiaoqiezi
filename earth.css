@@ -83,6 +83,7 @@ button { cursor: pointer; }
 .dot.v-b { fill: var(--blush); }
 .dot.v-ab { fill: var(--gold); }
 .lbl { font-family: var(--font-ui); fill: var(--cream); paint-order: stroke; stroke: rgba(18, 10, 24, .85); stroke-width: 3px; stroke-linejoin: round; text-anchor: middle; pointer-events: none; }
+.lbl.hit { pointer-events: auto; cursor: pointer; }
 .lbl.prov-l { font-weight: 600; }
 .lbl.city-l { font-weight: 500; }
 .lbl.dim { fill: rgba(247, 240, 234, .7); }
@@ -112,6 +113,7 @@ button { cursor: pointer; }
   transition: transform .32s cubic-bezier(.2, .8, .2, 1), visibility 0s .32s;
 }
 .open .panel { transform: none; visibility: visible; transition: transform .32s cubic-bezier(.2, .8, .2, 1), visibility 0s; }
+@media (min-width: 701px) { .panel { top: var(--bar-h, 64px); border-top: 1px solid var(--line); border-top-left-radius: 18px; } }
 @media (max-width: 700px) {
   .open .scrim { opacity: 1; pointer-events: auto; }
   .panel { top: auto; left: 0; width: 100%; height: 86%; border-left: 0; border-top: 1px solid var(--line); border-radius: 22px 22px 0 0; transform: translateY(104%); }

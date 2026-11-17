@@ -84,7 +84,9 @@
     renderMe();
     renderLegend();
     drawStars();
+    barHeight();
   }
+  function barHeight() { var b = root.querySelector('.bar'); if (b) root.style.setProperty('--bar-h', b.offsetHeight + 'px'); }
 
   function renderMe() {
     setText(els.meA, nameOf('a'));
@@ -142,9 +144,11 @@
       box.querySelector('.btn-danger').focus();
     });
   }
+  var picking = null;
   function pickMe() {
     if (me) return Promise.resolve(me);
-    return new Promise(function (resolve) {
+    if (picking) return picking;
+    picking = new Promise(function (resolve) {
       var box = h('div', { class: 'dlg', role: 'dialog', 'aria-modal': 'true' }, h('div', { class: 'dlg-box' }, [
         h('h3', null, '你是谁？'),
         h('p', null, '记下来的东西会标上你的名字。以后可以在右上角换。'),
@@ -154,6 +158,8 @@
       ]));
       document.body.appendChild(box);
     });
+    picking.then(function () { picking = null; });
+    return picking;
   }
   function editNames() {
     var ia = h('input', { type: 'text', id: 'qz-name-a', value: nameOf('a'), maxlength: '16' });
@@ -494,7 +500,8 @@
       .attr('cx', function (d) { return proj(d.cp)[0]; }).attr('cy', function (d) { return proj(d.cp)[1]; });
     var OFF = { 810000: [16, 10], 820000: [-16, 12], 120000: [14, 4], 110000: [-4, -8] };
     var labels = gRoot.append('g').selectAll('text').data(chinaFC.features).join('text')
-      .attr('class', 'lbl prov-l')
+      .attr('class', 'lbl prov-l hit')
+      .on('click', function (ev, d) { nav('#p-' + d.properties.id); })
       .attr('x', function (d) { return proj(d.properties.cp)[0] + (OFF[d.properties.id] || [0, 0])[0]; })
       .attr('y', function (d) { return proj(d.properties.cp)[1] + (OFF[d.properties.id] || [0, 0])[1]; })
       .text(function (d) { return d.properties.name; });
@@ -540,7 +547,8 @@
     cities.attr('aria-label', function (d) { return d.properties.name; });
     var base = Math.max(10, Math.min(13, W / 85));
     var labels = gRoot.append('g').selectAll('text').data(fc.features).join('text')
-      .attr('class', 'lbl city-l' + (p.direct ? ' dim' : ''))
+      .attr('class', 'lbl city-l hit' + (p.direct ? ' dim' : ''))
+      .on('click', open)
       .attr('x', function (d) { return proj(d.properties.cp)[0]; })
       .attr('y', function (d) { return proj(d.properties.cp)[1]; })
       .attr('dy', '.35em')
@@ -865,7 +873,7 @@
     window.addEventListener('resize', function () {
       clearTimeout(rt);
       rt = setTimeout(function () {
-        drawStars();
+        drawStars(); barHeight();
         var s = state; state = { level: null };
         if (s.level === 'globe') { state = s; renderGlobe(); }
         else if (s.level === 'china') { state = s; renderChina(false); }
