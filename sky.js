@@ -10,7 +10,8 @@
   var TINTS = ['#9bb0ff', '#aabfff', '#cad7ff', '#f8f7ff', '#fff4ea', '#ffd2a1', '#ffcc6f'];
   function tint() { var r = Math.random(); return r < .12 ? TINTS[0] : r < .3 ? TINTS[1] : r < .5 ? TINTS[2] : r < .78 ? TINTS[3] : r < .9 ? TINTS[4] : r < .97 ? TINTS[5] : TINTS[6]; }
 
-  function mount(el) {
+  function mount(el, opts) {
+    var withBase = !(opts && opts.base === false), on = true;
     var base = document.createElement('canvas'), live = document.createElement('canvas');
     [base, live].forEach(function (c) { c.setAttribute('aria-hidden', 'true'); c.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block'; el.appendChild(c); });
     var W = 0, H = 0, dpr = 1, bright = [], meteors = [], nextMeteor = 0, raf = 0, last = 0;
@@ -21,15 +22,21 @@
       [base, live].forEach(function (c) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); });
       var g = base.getContext('2d');
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, W, H);
+      var ang = -0.55, cx = W * .55, cy = H * .5, len = Math.hypot(W, H);
+      var ux = Math.cos(ang), uy = Math.sin(ang), nx = -uy, ny = ux, band = Math.min(W, H) * .16;
+      if (withBase) paintSpace(g, ang, cx, cy, len, ux, uy, nx, ny, band);
+      paintStars(g, cx, cy, len, ux, uy, nx, ny, band);
+      drawLive(0);
+    }
 
+    function paintSpace(g, ang, cx, cy, len, ux, uy, nx, ny, band) {
       /* deep space */
       var bg = g.createRadialGradient(W * .5, H * .45, 0, W * .5, H * .45, Math.max(W, H) * .8);
       bg.addColorStop(0, '#0b0d1f'); bg.addColorStop(1, '#03040a');
       g.fillStyle = bg; g.fillRect(0, 0, W, H);
 
       /* the Milky Way: a soft band across the sky, with warm and cool glow and dark dust */
-      var ang = -0.55, cx = W * .55, cy = H * .5, len = Math.hypot(W, H);
-      var ux = Math.cos(ang), uy = Math.sin(ang), nx = -uy, ny = ux, band = Math.min(W, H) * .16;
       g.globalCompositeOperation = 'lighter';
       for (var i = 0; i < 70; i++) {
         var t = rnd(-.55, .55) * len, o = gauss() * band * .55;
@@ -54,7 +61,9 @@
         dg.addColorStop(0, 'rgba(3,4,10,.32)'); dg.addColorStop(1, 'rgba(3,4,10,0)');
         g.fillStyle = dg; g.fillRect(dx - dr, dy - dr, dr * 2, dr * 2);
       }
+    }
 
+    function paintStars(g, cx, cy, len, ux, uy, nx, ny, band) {
       /* dust of faint stars, thicker along the band */
       var area = W * H, n = Math.round(area / 380);
       for (var k = 0; k < n; k++) {
@@ -80,7 +89,6 @@
       for (var b = 0, bn = Math.max(14, Math.round(area / 24000)); b < bn; b++) {
         bright.push({ x: Math.random() * W, y: Math.random() * H, r: rnd(.9, 1.7), c: tint(), ph: rnd(0, 6.28), sp: rnd(.6, 1.8), spike: Math.random() < .25 });
       }
-      drawLive(0);
     }
 
     function spawn(now) {
@@ -148,8 +156,17 @@
     paint();
     if (!reduced) raf = requestAnimationFrame(loop);
     var rt = 0;
-    window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(paint, 200); });
-    return { repaint: paint, stop: function () { cancelAnimationFrame(raf); } };
+    window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { if (on) paint(); }, 200); });
+    return {
+      repaint: paint,
+      setBase: function (v) { v = !!v; if (v !== withBase) { withBase = v; if (on) paint(); } },
+      setOn: function (v) {
+        v = !!v; if (v === on) return; on = v;
+        base.style.display = live.style.display = v ? 'block' : 'none';
+        cancelAnimationFrame(raf);
+        if (v) { meteors = []; paint(); if (!reduced) raf = requestAnimationFrame(loop); }
+      }
+    };
   }
 
   window.QZSky = { mount: mount };

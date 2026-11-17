@@ -7,39 +7,49 @@
 <title>我们的小世界</title>
 <link rel="stylesheet" href="fonts.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600&display=swap">
-<link rel="stylesheet" href="home.css?v=1794890637">
+<link rel="stylesheet" href="home.css?v=1794892039">
 </head>
 <body>
-<div class="sky" aria-hidden="true"></div>
+<div class="bg" aria-hidden="true">
+  <div class="bg-scene"></div>
+  <div class="bg-img"></div>
+  <div class="bg-dim"></div>
+  <div class="sky"></div>
+</div>
 <main class="wrap">
   <header class="head">
     <span class="egg" aria-hidden="true"></span>
-    <div>
-      <h1>我们的小世界</h1>
+    <div class="head-text">
+      <h1 data-t="title">我们的小世界</h1>
       <p id="names"><b>Logan</b> &amp; <b>茄子萌</b></p>
     </div>
+    <button class="gear" id="open-settings" type="button" aria-label="设置" data-t-aria="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l2-1.5-2-3.4-2.3.9a7.6 7.6 0 0 0-2.6-1.5L14 2.5h-4l-.5 2.5a7.6 7.6 0 0 0-2.6 1.5l-2.3-.9-2 3.4 2 1.5a7.6 7.6 0 0 0 0 3l-2 1.5 2 3.4 2.3-.9a7.6 7.6 0 0 0 2.6 1.5l.5 2.5h4l.5-2.5a7.6 7.6 0 0 0 2.6-1.5l2.3.9 2-3.4z"/></svg>
+    </button>
   </header>
-  <section class="cards" aria-label="这里有的东西">
+  <section class="cards" aria-label="这里有的东西" data-t-aria="cards">
     <a class="card cd" href="countdown.html">
       <div class="deco flip" aria-hidden="true"><span id="d1">1</span><span id="d2">1</span><span id="d3">1</span></div>
       <span class="no">01</span>
       <h2 id="cd-title">小茄子的时间表</h2>
-      <ul class="lines" id="cd-lines"><li>打开看看</li></ul>
-      <span class="go">打开倒计时</span>
+      <ul class="lines" id="cd-lines"><li data-t="look">打开看看</li></ul>
+      <span class="go" data-t="openCd">打开倒计时</span>
     </a>
     <a class="card" href="earth.html">
       <div class="deco globe" aria-hidden="true"></div>
       <span class="no">02</span>
-      <h2>我们的地球</h2>
-      <ul class="lines" id="earth-lines"><li>一起去过的地方，都记在这里</li></ul>
-      <span class="go">打开地球</span>
+      <h2 data-t="earth">我们的地球</h2>
+      <ul class="lines" id="earth-lines"><li data-t="earthEmpty">一起去过的地方，都记在这里</li></ul>
+      <span class="go" data-t="openEarth">打开地球</span>
     </a>
   </section>
 </main>
+<div class="scrim" id="scrim"></div>
+<aside class="panel" id="panel" aria-hidden="true"></aside>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js"></script>
-<script src="sky.js?v=1794890637"></script>
-<script src="home.js?v=1794890637"></script>
+<script src="firebase-config.js?v=1794892039"></script>
+<script src="sky.js?v=1794892039"></script>
+<script src="home.js?v=1794892039"></script>
 </body>
 </html>
