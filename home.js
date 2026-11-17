@@ -101,7 +101,7 @@
       });
       var ul = document.getElementById('earth-lines');
       ul.textContent = '';
-      [['点亮了', lit, '座城市'], ['一起存了', photos, '张照片']].forEach(function (r) {
+      [['点亮了', lit, '个地方'], ['一起存了', photos, '张照片']].forEach(function (r) {
         var li = document.createElement('li'), b = document.createElement('b');
         b.textContent = r[1];
         li.appendChild(document.createTextNode(r[0])); li.appendChild(b); li.appendChild(document.createTextNode(r[2]));

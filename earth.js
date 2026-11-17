@@ -8,6 +8,8 @@
   var ME_KEY = 'qzm-me';
   var CHINA_BOX = { type: 'MultiPoint', coordinates: [[73.5, 18.2], [135.1, 53.6], [73.5, 53.6], [135.1, 18.2]] };
   var FIT_SKIP = /三沙|金门|连江/;
+  var NOT_LISTED = { ALD: 1, ATC: 1, CLP: 1, CSI: 1, IOA: 1, KAS: 1, PGA: 1, USG: 1, ESB: 1, WSB: 1, KAB: 1, BJN: 1, SER: 1, SCR: 1 };
+  var ONE_RECORD = { SGP: 1 };                 /* countries kept as one record instead of by region */
   var reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   var me = null;
@@ -40,6 +42,7 @@
   function today() { var d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
   function nameOf(w) { return PEOPLE[w] || (w === 'a' ? 'Logan' : '茄子萌'); }
   function count(o) { return o ? Object.keys(o).length : 0; }
+  function whoColor(w) { return w === 'b' ? 'var(--b)' : 'var(--a)'; }
 
   /* ======================================================================
      Shell
@@ -64,6 +67,11 @@
     els.tip = h('div', { class: 'tip', hidden: true });
     els.scrim = h('div', { class: 'scrim', onclick: closeCity });
     els.panel = h('aside', { class: 'panel', 'aria-hidden': 'true' });
+    els.findIn = h('input', { type: 'search', id: 'qz-find', list: 'qz-find-list', placeholder: '搜国家或省份，比如 日本', autocomplete: 'off', enterkeyhint: 'go' });
+    els.findList = h('datalist', { id: 'qz-find-list' });
+    els.find = h('form', { class: 'find', role: 'search', onsubmit: function (ev) { ev.preventDefault(); find(els.findIn.value); } }, [
+      h('label', { class: 'sr', for: 'qz-find' }, '搜国家或省份'), els.findIn, els.findList, h('button', { class: 'btn btn-s', type: 'submit' }, '去')
+    ]);
     root.appendChild(h('div', { class: 'sky' }, els.stars));
     root.appendChild(h('header', { class: 'bar' }, [
       h('a', { class: 'home', href: './' }, ['←', h('span', null, '首页')]),
@@ -72,10 +80,7 @@
       els.gear
     ]));
     root.appendChild(els.stage);
-    els.stage.appendChild(els.hint);
-    els.stage.appendChild(els.legend);
-    els.stage.appendChild(els.count);
-    els.stage.appendChild(els.banner);
+    [els.find, els.hint, els.legend, els.count, els.banner].forEach(function (x) { els.stage.appendChild(x); });
     root.appendChild(els.tip);
     root.appendChild(els.scrim);
     root.appendChild(els.panel);
@@ -103,8 +108,8 @@
   }
   function renderLegend() {
     els.legend.textContent = '';
-    [['a', 'var(--leaf)', nameOf('a') + ' 去过'], ['b', 'var(--blush)', nameOf('b') + ' 去过'], ['ab', 'var(--gold)', '一起去过']].forEach(function (x) {
-      els.legend.appendChild(h('span', null, [h('i', { style: 'background:' + x[1] }), x[2]]));
+    [['var(--a)', nameOf('a') + ' 去过'], ['var(--b)', nameOf('b') + ' 去过'], ['var(--ab)', '两个人都去过']].forEach(function (x) {
+      els.legend.appendChild(h('span', null, [h('i', { style: 'background:' + x[0] }), x[1]]));
     });
   }
   function drawStars() {
@@ -166,8 +171,8 @@
     var ib = h('input', { type: 'text', id: 'qz-name-b', value: nameOf('b'), maxlength: '16' });
     var box = h('div', { class: 'dlg', role: 'dialog', 'aria-modal': 'true' }, h('div', { class: 'dlg-box' }, [
       h('h3', null, '你们的名字'),
-      h('label', { for: 'qz-name-a' }, ['绿色的人', ia]),
-      h('label', { for: 'qz-name-b' }, ['粉色的人', ib]),
+      h('label', { for: 'qz-name-a' }, ['浅蓝色的人', ia]),
+      h('label', { for: 'qz-name-b' }, ['蓝绿色的人', ib]),
       h('div', { class: 'dlg-actions' }, [
         h('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { box.remove(); } }, '取消'),
         h('button', { class: 'btn btn-leaf', type: 'button', onclick: function () {
@@ -185,12 +190,28 @@
   /* ======================================================================
      Map data
      ====================================================================== */
-  var world = null, chinaFC = null, provList = [], cityList = [], provById = {}, cityById = {}, citiesOf = {}, provGeo = {};
+  var world = null, chinaFC = null;
+  var provList = [], cityList = [], provById = {}, cityById = {}, citiesOf = {}, provGeo = {};
+  var countries = [], countryById = {}, countryGeo = {}, regionById = {};
   function topo(t) { var k = Object.keys(t.objects)[0]; return topojson.feature(t, t.objects[k]); }
   function loadJSON(u) { return fetch(u).then(function (r) { if (!r.ok) throw new Error(u); return r.json(); }); }
   function loadProv(pid) {
     if (provGeo[pid]) return Promise.resolve(provGeo[pid]);
     return loadJSON('data/prov/' + pid + '.json').then(function (t) { provGeo[pid] = topo(t); return provGeo[pid]; });
+  }
+  function oneRecord(cid) { var c = countryById[cid]; return !!c && (!c.regions || !!ONE_RECORD[cid]); }
+  function loadCountry(cid) {
+    if (countryGeo[cid]) return Promise.resolve(countryGeo[cid]);
+    var fromGlobe = function () {
+      var f = world.features.filter(function (x) { return x.properties.id === cid; });
+      return { type: 'FeatureCollection', features: f.map(function (x) { return { type: 'Feature', geometry: x.geometry, properties: { id: cid, name: x.properties.name, cp: countryById[cid].cp, fit: 1 } }; }) };
+    };
+    return loadJSON('data/world1/' + cid + '.json').then(topo, fromGlobe).then(function (fc) {
+      if (!fc.features.length) fc = fromGlobe();
+      fc.features.forEach(function (f) { regionById[f.properties.id] = { id: f.properties.id, name: f.properties.name, en: f.properties.en || '', country: cid }; });
+      countryGeo[cid] = fc;
+      return fc;
+    });
   }
 
   /* ======================================================================
@@ -233,11 +254,17 @@
     var has = a || b || count(d.did) > 0 || count(d.saw) > 0 || count(d.bought) > 0 || (d.photos || 0) > 0;
     return { a: a, b: b, has: has };
   }
+  function merge(s, x) { s.a = s.a || x.a; s.b = s.b || x.b; s.has = s.has || x.has; return s; }
   function provStat(pid) {
     var p = provById[pid];
     if (p && p.direct) return stat(pid);
     var s = { a: false, b: false, has: false };
-    (citiesOf[pid] || []).forEach(function (c) { var x = stat(c.id); s.a = s.a || x.a; s.b = s.b || x.b; s.has = s.has || x.has; });
+    (citiesOf[pid] || []).forEach(function (c) { merge(s, stat(c.id)); });
+    return s;
+  }
+  function countryStat(cid) {
+    var s = { a: false, b: false, has: false }, pre = cid + '-';
+    for (var id in live.places) if (id === cid || id.indexOf(pre) === 0) merge(s, stat(id));
     return s;
   }
   function vclass(s) { return s.a && s.b ? 'v-ab' : s.a ? 'v-a' : s.b ? 'v-b' : ''; }
@@ -247,17 +274,30 @@
     renderLegend();
     restyle();
     var n = 0;
-    cityList.forEach(function (c) { var s = stat(c.id); if (s.a || s.b) n++; });
-    els.count.innerHTML = '';
+    for (var id in live.places) { var s = stat(id); if (s.a || s.b) n++; }
+    els.count.textContent = '';
     els.count.appendChild(document.createTextNode('点亮了'));
     els.count.appendChild(h('b', null, String(n)));
-    els.count.appendChild(document.createTextNode('座城市'));
+    els.count.appendChild(document.createTextNode('个地方'));
     if (state.city) updatePanel();
   }
 
+  /* ---- what a record is about ---- */
+  function info(cid) {
+    var c = cityById[cid];
+    if (c) {
+      var p = provById[c.prov];
+      return { name: c.name, sub: p.direct ? '中国' : '中国 · ' + p.name, country: 'CHN', prov: c.prov };
+    }
+    if (countryById[cid]) return { name: countryById[cid].name, sub: countryById[cid].en, country: cid };
+    var r = regionById[cid];
+    if (r) return { name: r.name, sub: countryById[r.country].name + (r.en && r.en !== r.name ? ' · ' + r.en : ''), country: r.country };
+    return { name: cid, sub: '', country: '' };
+  }
+
   /* ---- writes ---- */
-  function cityDoc(cid) { return db.collection('places').doc(cid); }
-  function base(cid) { var c = cityById[cid]; return { name: c ? c.name : cid, prov: c ? c.prov : '', updated: Date.now() }; }
+  function placeDoc(cid) { return db.collection('places').doc(cid); }
+  function base(cid) { var i = info(cid), o = { name: i.name, country: i.country, updated: Date.now() }; if (i.prov) o.prov = i.prov; return o; }
   function write(p) { return p.catch(function () { toast('没保存上，检查一下网络再试'); }); }
   function needDb() { if (!db) { toast('连不上数据库，保存不了'); return false; } return true; }
 
@@ -265,29 +305,29 @@
     if (!needDb()) return;
     var d = live.places[cid] || {}, cur = !!(d.visited && d.visited[w]);
     var o = base(cid); o.visited = {}; o.visited[w] = !cur;
-    write(cityDoc(cid).set(o, { merge: true }));
+    write(placeDoc(cid).set(o, { merge: true }));
   }
   function toggleSpot(cid, key, name, w, custom) {
     if (!needDb()) return;
     var d = live.places[cid] || {}, cur = !!(d.spots && d.spots[key] && d.spots[key][w]);
     var o = base(cid); o.spots = {}; o.spots[key] = { name: name }; o.spots[key][w] = !cur;
     if (custom) o.spots[key].custom = true;
-    write(cityDoc(cid).set(o, { merge: true }));
+    write(placeDoc(cid).set(o, { merge: true }));
   }
   function addSpot(cid, name) {
     if (!needDb()) return;
     var key = keyOf(name), o = base(cid);
     o.spots = {}; o.spots[key] = { name: name, custom: true, a: false, b: false };
-    write(cityDoc(cid).set(o, { merge: true }));
+    write(placeDoc(cid).set(o, { merge: true }));
   }
   function removeField(cid, group, key) {
     if (!needDb()) return;
-    write(cityDoc(cid).update(new FP(group, key), FV.delete(), 'updated', Date.now()));
+    write(placeDoc(cid).update(new FP(group, key), FV.delete(), 'updated', Date.now()));
   }
   function addEntry(cid, group, entry) {
     if (!needDb()) return Promise.reject();
     var o = base(cid); o[group] = {}; o[group][uid()] = entry;
-    return cityDoc(cid).set(o, { merge: true });
+    return placeDoc(cid).set(o, { merge: true });
   }
 
   /* ---- photos ---- */
@@ -343,10 +383,10 @@
             if (img.close) img.close();
             var id = db.collection('thumbs').doc().id;
             return db.collection('photos').doc(id).set({ city: cid, data: full.data }).then(function () {
-              return db.collection('thumbs').doc(id).set({ city: cid, prov: (cityById[cid] || {}).prov || '', who: who, at: Date.now(), caption: '', thumb: th.data, w: full.w, h: full.h });
+              return db.collection('thumbs').doc(id).set({ city: cid, country: info(cid).country, who: who, at: Date.now(), caption: '', thumb: th.data, w: full.w, h: full.h });
             }).then(function () {
               var o = base(cid); o.photos = FV.increment(1);
-              return cityDoc(cid).set(o, { merge: true });
+              return placeDoc(cid).set(o, { merge: true });
             });
           }).catch(function () { toast('有一张照片没传上去（格式打不开或网络断了）'); });
         }).then(function () { uploading--; updatePhotos(); });
@@ -358,13 +398,15 @@
      Map rendering
      ====================================================================== */
   var W = 0, H = 0, svg = null, gRoot = null, zoom = null, zoomK = 1;
-  var state = { level: null, prov: null, city: null };
+  var state = { level: null };
   var globe = { rot: [-104, -30, 0], proj: null, timer: null, idle: 0, drag: false };
-  var cur = { proj: null, path: null };
+  var cur = {};
 
   function size() { var r = els.stage.getBoundingClientRect(); W = Math.max(320, r.width); H = Math.max(320, r.height); }
   function freshSvg() {
     if (globe.timer) { globe.timer.stop(); globe.timer = null; }
+    globe.draw = null; globe.paint = null;
+    cur = {};
     if (svg) svg.remove();
     size();
     svg = d3.select(els.stage).insert('svg', ':first-child').attr('viewBox', [0, 0, W, H]).attr('role', 'img');
@@ -390,8 +432,9 @@
   function showTip(ev, name, s) {
     els.tip.textContent = name;
     if (s && (s.a || s.b)) {
-      if (s.a) els.tip.appendChild(h('i', { style: 'color:var(--leaf)' }, '● ' + nameOf('a')));
-      if (s.b) els.tip.appendChild(h('i', { style: 'color:var(--blush)' }, '● ' + nameOf('b')));
+      if (s.a && s.b) els.tip.appendChild(h('i', { style: 'color:var(--ab)' }, '● 两个人都去过'));
+      else if (s.a) els.tip.appendChild(h('i', { style: 'color:var(--a)' }, '● ' + nameOf('a')));
+      else els.tip.appendChild(h('i', { style: 'color:var(--b)' }, '● ' + nameOf('b')));
     }
     els.tip.style.left = ev.clientX + 'px';
     els.tip.style.top = ev.clientY + 'px';
@@ -399,11 +442,11 @@
   }
   function hideTip() { if (els.tip) els.tip.hidden = true; }
   function hoverable(sel, nameFn, statFn) {
-    sel.on('pointermove', function (ev, d) { if (ev.pointerType === 'mouse') showTip(ev, nameFn(d), statFn(d)); })
-      .on('pointerleave', hideTip);
+    sel.on('pointermove.tip', function (ev, d) { if (ev.pointerType === 'mouse') showTip(ev, nameFn(d), statFn(d)); })
+      .on('pointerleave.tip', hideTip);
   }
-  function keyable(sel, fn, label) {
-    sel.attr('tabindex', 0).attr('role', 'button').attr('aria-label', label)
+  function keyable(sel, fn) {
+    sel.attr('tabindex', 0).attr('role', 'button')
       .on('keydown', function (ev, d) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); fn(ev, d); } });
   }
 
@@ -416,25 +459,40 @@
     gRoot.append('circle').attr('class', 'halo').attr('cx', W / 2).attr('cy', H / 2).attr('r', R * 1.25);
     var sphere = gRoot.append('path').datum({ type: 'Sphere' }).attr('class', 'sphere');
     var grat = gRoot.append('path').datum(d3.geoGraticule10()).attr('class', 'grat');
-    var land = gRoot.append('g').selectAll('path').data(world.features.filter(function (f) { return f.id !== '156' && f.id !== '158'; })).join('path').attr('class', 'land');
+    var goCountry = function (ev, d) { nav('#w-' + d.properties.id); };
+    var land = gRoot.append('g').selectAll('path').data(world.features).join('path')
+      .attr('aria-label', function (d) { return d.properties.name; })
+      .on('click', goCountry);
+    hoverable(land, function (d) { return d.properties.name; }, function (d) { return countryStat(d.properties.id); });
+    keyable(land, goCountry);
     var cn = gRoot.append('g').selectAll('path').data(chinaFC.features).join('path')
-      .attr('class', function (d) { return 'cn-globe ' + vclass(provStat(d.properties.id)); })
       .on('click', function () { nav('#china'); })
       .on('pointerenter', function () { cn.classed('hot', true); })
-      .on('pointerleave', function () { cn.classed('hot', false); hideTip(); })
-      .on('pointermove', function (ev, d) { if (ev.pointerType === 'mouse') showTip(ev, '中国 · ' + d.properties.name, provStat(d.properties.id)); });
-    keyable(cn.filter(function (d, i) { return i === 0; }), function () { nav('#china'); }, '进入中国地图');
-    var tag = gRoot.append('text').attr('class', 'globe-tag').attr('font-size', Math.max(16, R * .09)).text('中国');
+      .on('pointerleave', function () { cn.classed('hot', false); });
+    hoverable(cn, function (d) { return '中国 · ' + d.properties.name; }, function (d) { return provStat(d.properties.id); });
+    keyable(cn.filter(function (d, i) { return i === 0; }).attr('aria-label', '中国'), function () { nav('#china'); });
+    var small = countries.filter(function (c) { return !c.poly; });
+    var dots = gRoot.append('g').selectAll('circle').data(small).join('circle')
+      .attr('r', 2.6)
+      .on('click', function (ev, d) { nav('#w-' + d.id); });
+    hoverable(dots, function (d) { return d.name; }, function (d) { return countryStat(d.id); });
 
+    globe.paint = function () {
+      land.attr('class', function (d) { return 'land ' + vclass(countryStat(d.properties.id)); });
+      cn.attr('class', function (d) { return 'land cn ' + vclass(provStat(d.properties.id)); });
+      dots.attr('class', function (d) { return 'gdot ' + vclass(countryStat(d.id)); });
+    };
     globe.draw = function () {
       sphere.attr('d', path); grat.attr('d', path);
       land.attr('d', path); cn.attr('d', path);
-      var c = [104, 35.5], vis = d3.geoDistance(c, [-proj.rotate()[0], -proj.rotate()[1]]) < 1.25;
-      var p = proj(c);
-      tag.attr('opacity', vis ? 1 : 0).attr('x', p ? p[0] : -99).attr('y', p ? p[1] : -99);
+      var center = [-proj.rotate()[0], -proj.rotate()[1]];
+      dots.each(function (d) {
+        var vis = d3.geoDistance(d.cp, center) < Math.PI / 2 - .05, p = vis ? proj(d.cp) : null;
+        d3.select(this).attr('display', p ? null : 'none').attr('cx', p ? p[0] : 0).attr('cy', p ? p[1] : 0);
+      });
     };
+    globe.paint();
     globe.draw();
-    globe.cn = cn;
 
     svg.call(d3.drag().clickDistance(5)
       .on('start', function () { globe.drag = true; hideTip(); })
@@ -457,21 +515,27 @@
     }
     fadeIn();
   }
-  function flyToChina(done) {
-    if (!globe.proj || reduced) { done(); return; }
+  function flyGlobe(center, scale1, done) {
+    if (!globe.proj || !globe.draw || reduced) { done(); return; }
     if (globe.timer) { globe.timer.stop(); globe.timer = null; }
-    var proj = globe.proj, r0 = proj.rotate(), r1 = [-104.3, -35, 0];
+    var proj = globe.proj, r0 = proj.rotate(), r1 = [-center[0], -center[1], 0];
     while (r0[0] - r1[0] > 180) r0[0] -= 360;
     while (r1[0] - r0[0] > 180) r0[0] += 360;
-    var s0 = proj.scale(), s1 = Math.min((W - 40) / .88, (H - 40) / .66);
+    var s0 = proj.scale(), s1 = Math.max(s0, Math.min(scale1, s0 * 40));
     var ir = d3.interpolate(r0, r1), is = d3.interpolate(s0, s1);
     gRoot.select('.halo').transition().duration(400).attr('opacity', 0);
     d3.transition().duration(1100).ease(d3.easeCubicInOut).tween('fly', function () {
-      return function (t) { proj.rotate(ir(t)).scale(is(t)); globe.draw(); };
-    }).on('end', function () { globe.rot = r1; done(); });
+      return function (t) { proj.rotate(ir(t)).scale(is(t)); if (globe.draw) globe.draw(); };
+    }).on('end', function () { globe.rot = [r1[0], Math.max(-75, Math.min(75, r1[1])), 0]; done(); });
+  }
+  function flyToChina(done) { flyGlobe([104.3, 35], Math.min((W - 40) / .88, (H - 40) / .66), done); }
+  function flyToCountry(cid, done) {
+    var c = countryById[cid];
+    var r = Math.max(.02, Math.min(c.r || .3, 1.2));
+    flyGlobe(c.cp, Math.min(W, H) * .42 / Math.sin(r), done);
   }
 
-  /* ---------- flat maps (China and a province) ---------- */
+  /* ---------- flat maps ---------- */
   function addZoom(maxK, onZoom) {
     zoom = d3.zoom().scaleExtent([1, maxK]).clickDistance(5).on('zoom', function (ev) {
       gRoot.attr('transform', ev.transform);
@@ -481,33 +545,34 @@
     });
     svg.call(zoom).on('dblclick.zoom', null);
   }
+  function fitRight() { return state.city && W > 700 ? Math.min(440, W * .5) : 0; }
 
   function renderChina(animate) {
     freshSvg();
     var pad = Math.min(W, H) * .05;
-    var proj = d3.geoMercator().fitExtent([[pad, pad], [W - pad, H - pad - 40]], CHINA_BOX);
+    var proj = d3.geoMercator().fitExtent([[pad, pad + 40], [W - pad, H - pad - 40]], CHINA_BOX);
     var path = d3.geoPath(proj);
-    cur.proj = proj; cur.path = path;
+    var go = function (ev, d) { nav('#p-' + d.properties.id); };
     var provs = gRoot.append('g').selectAll('path').data(chinaFC.features).join('path')
       .attr('d', path)
       .attr('data-id', function (d) { return d.properties.id; })
-      .on('click', function (ev, d) { nav('#p-' + d.properties.id); });
+      .attr('aria-label', function (d) { return d.properties.name; })
+      .on('click', go);
     hoverable(provs, function (d) { return d.properties.name; }, function (d) { return provStat(d.properties.id); });
-    keyable(provs, function (ev, d) { nav('#p-' + d.properties.id); }, '');
-    provs.attr('aria-label', function (d) { return d.properties.name; });
+    keyable(provs, go);
     var base = Math.max(10, Math.min(13, W / 90));
     var dots = gRoot.append('g').selectAll('circle').data(cityList).join('circle')
       .attr('cx', function (d) { return proj(d.cp)[0]; }).attr('cy', function (d) { return proj(d.cp)[1]; });
     var OFF = { 810000: [16, 10], 820000: [-16, 12], 120000: [14, 4], 110000: [-4, -8] };
     var labels = gRoot.append('g').selectAll('text').data(chinaFC.features).join('text')
       .attr('class', 'lbl prov-l hit')
-      .on('click', function (ev, d) { nav('#p-' + d.properties.id); })
+      .on('click', go)
       .attr('x', function (d) { return proj(d.properties.cp)[0] + (OFF[d.properties.id] || [0, 0])[0]; })
       .attr('y', function (d) { return proj(d.properties.cp)[1] + (OFF[d.properties.id] || [0, 0])[1]; })
       .text(function (d) { return d.properties.name; });
     function sizeAll(k) {
       labels.attr('font-size', base / k).attr('stroke-width', 3 / k).attr('dy', -6 / k);
-      dots.attr('r', function (d) { return (vclass(stat(d.id)) ? 3.2 : 1.5) / Math.sqrt(k) / Math.sqrt(k) * Math.min(k, 2.2); });
+      dots.attr('r', function (d) { return (vclass(stat(d.id)) ? 3.2 : 1.5) * Math.min(1, 2.2 / k); });
     }
     cur.restyle = function () {
       provs.attr('class', function (d) { var s = provStat(d.properties.id); return 'prov ' + vclass(s) + (s.has ? ' has' : ''); });
@@ -516,78 +581,136 @@
     };
     cur.restyle();
     addZoom(8, sizeAll);
-    cur.flyTo = function (pid, done) {
+    cur.zoomTo = function (pid, done) {
       var f = chinaFC.features.filter(function (x) { return x.properties.id === pid; })[0];
       if (!f || reduced) { done(); return; }
-      var b = path.bounds(f), dx = b[1][0] - b[0][0], dy = b[1][1] - b[0][1];
-      var k = Math.min(8, .85 / Math.max(dx / W, dy / H));
-      var t = d3.zoomIdentity.translate(W / 2, H / 2).scale(k).translate(-(b[0][0] + b[1][0]) / 2, -(b[0][1] + b[1][1]) / 2);
-      provs.filter(function (d) { return d.properties.id !== pid; }).transition().duration(500).attr('opacity', .25);
-      svg.transition().duration(750).ease(d3.easeCubicInOut).call(zoom.transform, t).on('end', done);
+      zoomToBounds(path.bounds(f), provs.filter(function (d) { return d.properties.id !== pid; }), done);
     };
     if (animate) fadeIn();
   }
+  function zoomToBounds(b, others, done) {
+    var dx = b[1][0] - b[0][0], dy = b[1][1] - b[0][1];
+    var k = Math.min(8, .85 / Math.max(dx / W, dy / H));
+    var t = d3.zoomIdentity.translate(W / 2, H / 2).scale(k).translate(-(b[0][0] + b[1][0]) / 2, -(b[0][1] + b[1][1]) / 2);
+    others.transition().duration(500).attr('opacity', .25);
+    svg.transition().duration(750).ease(d3.easeCubicInOut).call(zoom.transform, t).on('end', done);
+  }
 
-  function renderProvince(pid, fc, animate) {
+  /* one region map, used for a Chinese province and for any other country */
+  function renderRegions(opt, animate) {
     freshSvg();
-    var p = provById[pid];
-    var pad = Math.min(W, H) * .07;
-    var fit = { type: 'FeatureCollection', features: fc.features.filter(function (f) { return !FIT_SKIP.test(f.properties.name); }) };
+    var fc = opt.fc, pad = Math.min(W, H) * .07, right = fitRight();
+    var fit = { type: 'FeatureCollection', features: fc.features.filter(opt.fitFilter) };
     if (!fit.features.length) fit = fc;
-    var right = state.city && W > 700 ? Math.min(440, W * .5) : 0;
-    var proj = d3.geoMercator().fitExtent([[pad, pad], [W - pad - right, H - pad - 40]], fit);
+    var proj = d3.geoMercator();
+    if (opt.center) proj.rotate([-opt.center[0], 0]);
+    proj.fitExtent([[pad, pad + (opt.direct ? 30 : 0)], [W - pad - right, H - pad - 40]], fit);
     var path = d3.geoPath(proj);
-    cur.proj = proj; cur.path = path;
-    var open = function (ev, d) { nav('#c-' + (p.direct ? pid : d.properties.id)); };
-    var cities = gRoot.append('g').selectAll('path').data(fc.features).join('path')
+    var open = function (ev, d) { nav(opt.openHash(d)); };
+    var shapes = gRoot.append('g').selectAll('path').data(fc.features).join('path')
       .attr('d', path)
+      .attr('aria-label', function (d) { return d.properties.name; })
       .on('click', open);
-    hoverable(cities, function (d) { return p.direct ? p.name + ' · ' + d.properties.name : d.properties.name; }, function (d) { return stat(p.direct ? pid : d.properties.id); });
-    keyable(cities, open, '');
-    cities.attr('aria-label', function (d) { return d.properties.name; });
+    hoverable(shapes, function (d) { return opt.tipName(d); }, function (d) { return stat(opt.idOf(d)); });
+    keyable(shapes, open);
+    var areas = fc.features.map(function (d) { return path.area(d); });
     var base = Math.max(10, Math.min(13, W / 85));
     var labels = gRoot.append('g').selectAll('text').data(fc.features).join('text')
-      .attr('class', 'lbl city-l hit' + (p.direct ? ' dim' : ''))
+      .attr('class', 'lbl city-l hit' + (opt.direct ? ' dim' : ''))
       .on('click', open)
-      .attr('x', function (d) { return proj(d.properties.cp)[0]; })
-      .attr('y', function (d) { return proj(d.properties.cp)[1]; })
+      .attr('x', function (d) { var p = proj(d.properties.cp); return p ? p[0] : -999; })
+      .attr('y', function (d) { var p = proj(d.properties.cp); return p ? p[1] : -999; })
       .attr('dy', '.35em')
-      .text(function (d) { return d.properties.name.replace(/(市|县)$/, ''); });
+      .text(function (d) { return opt.label(d); });
     var title = null;
-    if (p.direct) {
-      var c = proj(p.cp);
-      title = gRoot.append('text').attr('class', 'globe-tag').attr('x', W / 2 - right / 2).attr('y', pad + 10).text(p.name + ' · 点任意地方打开记录');
-    }
+    if (opt.direct) title = gRoot.append('text').attr('class', 'globe-tag').attr('x', (W - right) / 2).attr('y', pad + 12).text(opt.title + ' · 点任意地方打开记录');
     function sizeAll(k) {
-      labels.attr('font-size', base / k).attr('stroke-width', 3 / k);
+      labels.attr('font-size', base / k).attr('stroke-width', 3 / k)
+        .attr('display', function (d, i) {
+          if (opt.noLabels) return 'none';
+          if (opt.allLabels) return null;
+          var w = opt.label(d).length * base;
+          return areas[i] * k * k > w * w * .55 ? null : 'none';
+        });
       if (title) title.attr('font-size', 15 / k);
     }
     cur.restyle = function () {
-      cities.attr('class', function (d) {
-        var id = p.direct ? pid : d.properties.id, s = stat(id);
-        return 'city ' + vclass(s) + (s.has ? ' has' : '') + (state.city && state.city === id && !p.direct ? ' sel' : '');
+      shapes.attr('class', function (d) {
+        var id = opt.idOf(d), s = stat(id);
+        return 'city ' + vclass(s) + (s.has ? ' has' : '') + (!opt.direct && state.city === id ? ' sel' : '');
       });
       sizeAll(zoomK);
     };
     cur.restyle();
-    addZoom(10, sizeAll);
+    addZoom(opt.direct ? 12 : 14, sizeAll);
     if (animate) fadeIn();
+  }
+  function renderProvince(pid, fc, animate) {
+    var p = provById[pid];
+    renderRegions({
+      fc: fc, direct: !!p.direct, title: p.name, allLabels: true,
+      fitFilter: function (f) { return !FIT_SKIP.test(f.properties.name); },
+      idOf: function (d) { return p.direct ? pid : d.properties.id; },
+      openHash: function (d) { return '#c-' + (p.direct ? pid : d.properties.id); },
+      tipName: function (d) { return p.direct ? p.name + ' · ' + d.properties.name : d.properties.name; },
+      label: function (d) { return d.properties.name.replace(/(市|县)$/, ''); }
+    }, animate);
+  }
+  function renderCountry(cid, fc, animate) {
+    var c = countryById[cid], one = oneRecord(cid);
+    renderRegions({
+      fc: fc, direct: one, title: c.name, center: c.cp, allLabels: false, noLabels: one,
+      fitFilter: function (f) { return !!f.properties.fit; },
+      idOf: function (d) { return one ? cid : d.properties.id; },
+      openHash: function (d) { return '#r-' + (one ? cid : d.properties.id); },
+      tipName: function (d) { return one ? c.name : d.properties.name + (d.properties.en && d.properties.en !== d.properties.name ? '  ' + d.properties.en : ''); },
+      label: function (d) { return d.properties.name; }
+    }, animate);
   }
 
   function restyle() {
-    if (state.level === 'globe' && globe.cn) globe.cn.attr('class', function (d) { return 'cn-globe ' + vclass(provStat(d.properties.id)); });
+    if (state.level === 'globe' && globe.paint) globe.paint();
     else if (cur.restyle) cur.restyle();
   }
 
   /* ======================================================================
-     Routing: #china, #p-<province>, #c-<city>
+     Finding a place by name
+     ====================================================================== */
+  function fillFind() {
+    var seen = {};
+    els.findList.textContent = '';
+    var add = function (v) { if (!seen[v]) { seen[v] = 1; els.findList.appendChild(h('option', { value: v })); } };
+    add('中国');
+    provList.forEach(function (p) { add(p.name); });
+    countries.forEach(function (c) { add(c.name); });
+  }
+  function find(q) {
+    q = (q || '').trim().toLowerCase();
+    if (!q) return;
+    if (q === '中国' || q === 'china') { nav('#china'); return; }
+    var hit = provList.filter(function (p) { return p.name.toLowerCase() === q; })[0];
+    if (hit) { nav('#p-' + hit.id); return; }
+    var c = countries.filter(function (x) { return x.name.toLowerCase() === q || x.en.toLowerCase() === q; })[0]
+      || countries.filter(function (x) { return x.name.toLowerCase().indexOf(q) === 0 || x.en.toLowerCase().indexOf(q) === 0; })[0]
+      || countries.filter(function (x) { return x.name.toLowerCase().indexOf(q) >= 0 || x.en.toLowerCase().indexOf(q) >= 0; })[0];
+    if (c) { els.findIn.value = ''; nav('#w-' + c.id); return; }
+    toast('没找到“' + q + '”，换个写法试试');
+  }
+
+  /* ======================================================================
+     Routing: #china  #p-<province>  #c-<city>  #w-<country>  #r-<region>
      ====================================================================== */
   function nav(hash) { if (location.hash === hash) route(); else location.hash = hash; }
   function parse() {
-    var x = location.hash.slice(1);
+    var x = decodeURIComponent(location.hash.slice(1)), pre = x.slice(0, 2), id = x.slice(2);
     if (x === 'china') return { level: 'china' };
-    if (x.slice(0, 2) === 'p-' && provById[x.slice(2)]) return { level: 'prov', prov: x.slice(2) };
-    if (x.slice(0, 2) === 'c-' && cityById[x.slice(2)]) return { level: 'prov', prov: cityById[x.slice(2)].prov, city: x.slice(2) };
+    if (pre === 'p-' && provById[id]) return { level: 'prov', prov: id };
+    if (pre === 'c-' && cityById[id]) return { level: 'prov', prov: cityById[id].prov, city: id };
+    if (pre === 'w-' && countryById[id]) return { level: 'country', country: id };
+    if (pre === 'r-') {
+      var cid = countryById[id] ? id : id.split('-')[0];
+      if (countryById[cid]) return { level: 'country', country: cid, city: id };
+    }
     return { level: 'globe' };
   }
   var busy = false, pending = false;
@@ -596,45 +719,63 @@
     var to = parse(), from = state;
     var done = function () { busy = false; if (pending) { pending = false; route(); } };
     busy = true;
+    var fail = function () { toast('地图没加载出来，刷新一下试试'); done(); };
     if (to.level === 'globe') {
       closePanel(); state = { level: 'globe' }; renderGlobe(); after(); done();
-    } else if (to.level === 'china') {
+      return;
+    }
+    if (to.level === 'china') {
       closePanel();
       var go = function () { state = { level: 'china' }; renderChina(true); after(); done(); };
       if (from.level === 'globe') flyToChina(go); else go();
-    } else {
-      var same = from.level === 'prov' && from.prov === to.prov;
+      return;
+    }
+    var key = to.level === 'prov' ? to.prov : to.country;
+    var load = to.level === 'prov' ? loadProv : loadCountry;
+    var draw = to.level === 'prov' ? renderProvince : renderCountry;
+    var same = from.level === to.level && (from.prov || from.country) === key;
+    load(key).then(function (fc) {
+      if (to.city && !info(to.city).country) { to.city = null; }
       if (same) {
         var wasOpen = !!from.city;
-        state = { level: 'prov', prov: to.prov, city: to.city || null };
+        state = { level: to.level, prov: to.prov, country: to.country, city: to.city || null };
         if (state.city) openPanel(); else closePanel();
-        if (wasOpen !== !!state.city && W > 700) { loadProv(to.prov).then(function (fc) { renderProvince(to.prov, fc, false); after(); done(); }); return; }
-        restyle(); after(); done();
+        if (wasOpen !== !!state.city && W > 700) draw(key, fc, false); else restyle();
+        after(); done();
         return;
       }
-      loadProv(to.prov).then(function (fc) {
-        var go = function () {
-          state = { level: 'prov', prov: to.prov, city: to.city || null };
-          if (state.city) openPanel(); else closePanel();
-          renderProvince(to.prov, fc, true); after(); done();
-        };
-        if (from.level === 'china' && cur.flyTo) cur.flyTo(to.prov, go); else go();
-      }).catch(function () { toast('地图没加载出来，刷新一下试试'); done(); });
-    }
+      var go = function () {
+        state = { level: to.level, prov: to.prov, country: to.country, city: to.city || null };
+        if (state.city) openPanel(); else closePanel();
+        draw(key, fc, true); after(); done();
+      };
+      if (to.level === 'prov' && from.level === 'china' && cur.zoomTo) cur.zoomTo(to.prov, go);
+      else if (to.level === 'country' && from.level === 'globe') flyToCountry(to.country, go);
+      else go();
+    }, fail);
   }
   function after() {
     renderCrumbs();
-    var hints = { globe: '拖动转地球 · 点中国进去', china: '点省份放大 · 滚轮或双指缩放', prov: state.prov && provById[state.prov].direct ? '点地图打开你们的记录' : '点城市写你们的记录' };
-    setText(els.hint, hints[state.level]);
+    var hint = { globe: '拖动转地球 · 点国家进去', china: '点省份放大 · 滚轮或双指缩放' }[state.level];
+    if (state.level === 'prov') hint = provById[state.prov].direct ? '点地图打开你们的记录' : '点城市写你们的记录';
+    if (state.level === 'country') hint = oneRecord(state.country) ? '点地图打开你们的记录' : '点地区写你们的记录 · 可以缩放';
+    setText(els.hint, hint);
     els.hint.hidden = !!state.city;
-    els.legend.hidden = state.level === 'globe';
+    els.legend.hidden = false;
+    els.find.hidden = state.level !== 'globe';
   }
   function renderCrumbs() {
     var c = els.crumbs; c.textContent = '';
     var parts = [['地球', '#globe']];
-    if (state.level !== 'globe') parts.push(['中国', '#china']);
-    if (state.level === 'prov') parts.push([provById[state.prov].name, '#p-' + state.prov]);
-    if (state.city && !provById[state.prov].direct) parts.push([cityById[state.city].name, null]);
+    if (state.level === 'china' || state.level === 'prov') parts.push(['中国', '#china']);
+    if (state.level === 'prov') {
+      parts.push([provById[state.prov].name, '#p-' + state.prov]);
+      if (state.city && !provById[state.prov].direct) parts.push([cityById[state.city].name, null]);
+    }
+    if (state.level === 'country') {
+      parts.push([countryById[state.country].name, '#w-' + state.country]);
+      if (state.city && !oneRecord(state.country)) parts.push([info(state.city).name, null]);
+    }
     parts.forEach(function (p, i) {
       if (i) c.appendChild(h('span', { class: 'sep', 'aria-hidden': 'true' }, '›'));
       if (i === parts.length - 1 || !p[1]) c.appendChild(h('b', null, p[0]));
@@ -643,7 +784,7 @@
   }
 
   /* ======================================================================
-     City drawer
+     Record drawer
      ====================================================================== */
   var pan = {};
   function openPanel() {
@@ -659,7 +800,10 @@
     els.panel.setAttribute('aria-hidden', 'true');
     if (thumbUnsub) { thumbUnsub(); thumbUnsub = null; }
   }
-  function closeCity() { if (state.prov) nav('#p-' + state.prov); }
+  function closeCity() {
+    if (state.level === 'prov') nav('#p-' + state.prov);
+    else if (state.level === 'country') nav('#w-' + state.country);
+  }
 
   function entryForm(group, opts) {
     var main = opts.textarea
@@ -668,7 +812,7 @@
     var price = opts.price ? h('input', { type: 'text', id: 'qz-' + group + '-price', placeholder: '价格（可不填）', autocomplete: 'off', style: 'width:9.5em;flex:none' }) : null;
     var date = h('input', { type: 'date', id: 'qz-' + group + '-date', value: today(), 'aria-label': '日期' });
     var btn = h('button', { class: 'btn btn-leaf btn-s', type: 'submit' }, '添加');
-    var form = h('form', { class: 'form', onsubmit: function (ev) {
+    return h('form', { class: 'form', onsubmit: function (ev) {
       ev.preventDefault();
       var text = main.value.trim();
       if (!text) { main.focus(); return; }
@@ -685,16 +829,16 @@
       opts.price ? h('div', { class: 'form-row' }, [h('div', { class: 'grow' }, main), price]) : main,
       h('div', { class: 'form-row' }, [date, h('span', { class: 'grow' }), btn])
     ]);
-    return form;
   }
 
   function buildPanel(cid) {
-    var c = cityById[cid], p = provById[c.prov];
+    var i = info(cid);
     pan = { city: cid };
     els.panel.textContent = '';
-    els.panel.setAttribute('aria-label', c.name);
+    els.panel.setAttribute('aria-label', i.name);
     pan.visA = h('button', { class: 'who', type: 'button', 'data-who': 'a', onclick: function () { toggleVisit(cid, 'a'); } });
     pan.visB = h('button', { class: 'who', type: 'button', 'data-who': 'b', onclick: function () { toggleVisit(cid, 'b'); } });
+    pan.both = h('span', { class: 'both-badge', hidden: true }, '两个人都去过');
     pan.sub = h('p');
 
     var file = h('input', { type: 'file', accept: 'image/*', multiple: true, class: 'sr', tabindex: '-1', id: 'qz-photo-file', onchange: function () { upload(cid, file.files); file.value = ''; } });
@@ -719,10 +863,10 @@
     }
 
     els.panel.appendChild(h('div', { class: 'p-head' }, [
-      h('div', null, [h('h2', null, c.name), pan.sub]),
+      h('div', null, [h('h2', null, i.name), pan.sub]),
       h('button', { class: 'x', type: 'button', 'aria-label': '关闭', onclick: closeCity }, '×')
     ]));
-    els.panel.appendChild(h('div', { class: 'visits' }, [pan.visA, pan.visB]));
+    els.panel.appendChild(h('div', { class: 'visits' }, [pan.visA, pan.visB, pan.both]));
     pan.body = h('div', { class: 'p-body' }, [
       h('section', { class: 'sec' }, [
         h('div', { class: 'sec-h' }, [h('h3', null, '照片'), pan.photoN, h('button', { class: 'btn btn-s act', type: 'button', onclick: function () { file.click(); } }, '+ 上传照片'), file]),
@@ -734,30 +878,32 @@
       listSec('bought', '买了什么', entryForm('bought', { price: true, placeholder: '买了什么' }))
     ]);
     els.panel.appendChild(pan.body);
-    pan.p = p;
   }
 
   function updatePanel() {
     var cid = state.city;
     if (!cid || pan.city !== cid) return;
-    var d = live.places[cid] || {}, c = cityById[cid];
-    var vis = d.visited || {};
+    var d = live.places[cid] || {}, i = info(cid);
+    var vis = d.visited || {}, s = stat(cid);
     setText(pan.visA, nameOf('a') + ' 去过');
     setText(pan.visB, nameOf('b') + ' 去过');
     pan.visA.setAttribute('aria-pressed', String(!!vis.a));
     pan.visB.setAttribute('aria-pressed', String(!!vis.b));
-    setText(pan.sub, pan.p.direct ? '中国' : '中国 · ' + pan.p.name);
+    pan.both.hidden = !(s.a && s.b);
+    setText(pan.sub, i.sub);
     updatePhotos();
 
-    /* spots: starter list for this city plus the ones you added */
+    /* attractions: the starter list for this place plus the ones you added */
     var sp = d.spots || {}, seen = {}, rows = [];
     ((window.QZ_SPOTS || {})[cid] || []).forEach(function (name) { var k = keyOf(name); seen[k] = 1; rows.push({ key: k, name: name, s: sp[k] || {}, custom: false }); });
     Object.keys(sp).forEach(function (k) { if (!seen[k] && sp[k] && sp[k].name) rows.push({ key: k, name: sp[k].name, s: sp[k], custom: !!sp[k].custom }); });
     pan.spots.textContent = '';
-    var done = 0;
+    var done = 0, together = 0;
     rows.forEach(function (r) {
+      var both = !!(r.s.a && r.s.b);
       if (r.s.a || r.s.b) done++;
-      pan.spots.appendChild(h('div', { class: 'spot' }, [
+      if (both) together++;
+      pan.spots.appendChild(h('div', { class: 'spot' + (both ? ' both' : '') }, [
         h('span', { class: 'spot-name' }, r.name),
         ['a', 'b'].map(function (w) {
           return h('button', { class: 'who mini', type: 'button', 'data-who': w, 'aria-pressed': String(!!r.s[w]), onclick: function () { toggleSpot(cid, r.key, r.name, w, r.custom); } }, nameOf(w));
@@ -768,7 +914,7 @@
       ].reduce(function (a, x) { return a.concat(x); }, [])));
     });
     if (!rows.length) pan.spots.appendChild(h('p', { class: 'empty' }, '这里还没有景点，在下面加一个。'));
-    setText(pan.spotN, rows.length ? done + ' / ' + rows.length : '');
+    setText(pan.spotN, rows.length ? '去过 ' + done + ' / ' + rows.length + (together ? ' · 一起 ' + together : '') : '');
 
     ['did', 'saw', 'bought'].forEach(function (g) {
       var map = d[g] || {}, ids = Object.keys(map);
@@ -782,7 +928,7 @@
           : h('p', { class: 'entry-text' }, e.text || '');
         list.appendChild(h('div', { class: 'entry', 'data-who': e.who || '' }, [
           h('div', { class: 'entry-meta' }, [
-            h('span', { style: 'color:' + (e.who === 'b' ? 'var(--blush)' : 'var(--leaf)') }, nameOf(e.who)),
+            h('span', { style: 'color:' + whoColor(e.who) }, nameOf(e.who)),
             h('span', null, e.date || ''),
             h('button', { class: 'rm', type: 'button', 'aria-label': '删除这条', onclick: function () {
               ask('删除这条记录？', g === 'bought' ? (e.item || '') : (e.text || '').slice(0, 60), '删除').then(function (ok) { if (ok) removeField(cid, g, id); });
@@ -826,7 +972,7 @@
     }
     box = h('div', { class: 'lb', role: 'dialog', 'aria-modal': 'true', 'aria-label': '照片' }, [
       h('div', { class: 'lb-top' }, [
-        h('span', { style: 'font-size:13px;color:' + (t.who === 'b' ? 'var(--blush)' : 'var(--leaf)') }, nameOf(t.who) + ' 上传'),
+        h('span', { style: 'font-size:13px;color:' + whoColor(t.who) }, nameOf(t.who) + ' 上传'),
         h('span', { class: 'sp' }),
         h('button', { class: 'btn btn-s btn-ghost btn-danger', type: 'button', onclick: function () {
           ask('删除这张照片？', '删了就找不回来了。', '删除').then(function (ok) {
@@ -834,7 +980,7 @@
             close();
             Promise.all([db.collection('thumbs').doc(id).delete(), db.collection('photos').doc(id).delete()]).then(function () {
               var o = base(cid); o.photos = FV.increment(-1);
-              return cityDoc(cid).set(o, { merge: true });
+              return placeDoc(cid).set(o, { merge: true });
             }).catch(function () { toast('没删掉，再试一次'); });
           });
         } }, '删除'),
@@ -859,12 +1005,16 @@
      ====================================================================== */
   buildShell();
   initDb();
-  Promise.all([loadJSON('data/world.json'), loadJSON('data/china.json'), loadJSON('data/places.json')]).then(function (r) {
+  Promise.all([loadJSON('data/world.json'), loadJSON('data/china.json'), loadJSON('data/places.json'), loadJSON('data/countries.json')]).then(function (r) {
     world = topo(r[0]);
     chinaFC = topo(r[1]);
     provList = r[2].provinces; cityList = r[2].cities;
     provList.forEach(function (p) { provById[p.id] = p; citiesOf[p.id] = []; });
     cityList.forEach(function (c) { cityById[c.id] = c; if (citiesOf[c.prov]) citiesOf[c.prov].push(c); });
+    countries = r[3].filter(function (c) { return !NOT_LISTED[c.id]; });
+    countries.sort(function (a, b) { return a.name.localeCompare(b.name, 'zh'); });
+    countries.forEach(function (c) { countryById[c.id] = c; });
+    fillFind();
     els.loading.remove();
     window.addEventListener('hashchange', route);
     route();
@@ -874,10 +1024,11 @@
       clearTimeout(rt);
       rt = setTimeout(function () {
         drawStars(); barHeight();
-        var s = state; state = { level: null };
-        if (s.level === 'globe') { state = s; renderGlobe(); }
-        else if (s.level === 'china') { state = s; renderChina(false); }
-        else if (s.level === 'prov') { state = s; loadProv(s.prov).then(function (fc) { renderProvince(s.prov, fc, false); }); }
+        var s = state;
+        if (s.level === 'globe') renderGlobe();
+        else if (s.level === 'china') renderChina(false);
+        else if (s.level === 'prov') loadProv(s.prov).then(function (fc) { renderProvince(s.prov, fc, false); });
+        else if (s.level === 'country') loadCountry(s.country).then(function (fc) { renderCountry(s.country, fc, false); });
       }, 200);
     });
   }).catch(function () {
