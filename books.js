@@ -110,9 +110,9 @@
   function loadBook(id) {
     if (books[id]) return Promise.resolve(books[id]);
     return Promise.all([
-      fetch('books/' + id + '.json?v=1').then(function (r) { return r.json(); }),
-      fetch('books/' + id + '.zh.json?v=1').then(function (r) { return r.ok ? r.json() : { ch: {} }; }).catch(function () { return { ch: {} }; })
-    ]).then(function (x) { var b = x[0]; b.zh = x[1].ch || {}; books[id] = b; return b; });
+      fetch('books/' + id + '.json?v=2').then(function (r) { return r.json(); }),
+      fetch('books/' + id + '.zh.json?v=2').then(function (r) { return r.ok ? r.json() : { ch: {} }; }).catch(function () { return { ch: {} }; })
+    ]).then(function (x) { var b = x[0]; b.zh = x[1].ch || {}; b.zs = x[1].s || {}; books[id] = b; return b; });
   }
   function openBook(id, ch, f, push) {
     var meta = shelf.filter(function (x) { return x.id === id; })[0];
@@ -140,6 +140,7 @@
     return Object.keys(shared.notes).map(function (k) { return shared.notes[k]; })
       .filter(function (n) { return n && n.book === bookId && n.ch === ch; });
   }
+  function subOf(i) { var c = cur.b.ch[i], z = cur.b.zs && cur.b.zs[i]; return prefs.lang !== 'en' && z ? z : c.s; }
   function textOf(i, l) { return l === 'zh' ? ((cur.b.zh[cur.ch] || [])[i] || '') : cur.b.ch[cur.ch].p[i]; }
   function marksFor(i, l) { return notesIn(cur.b.id, cur.ch).filter(function (n) { return n.p === i && (n.l || 'en') === l; }); }
   /* one paragraph, with our marks laid over it */
@@ -166,7 +167,8 @@
     page.textContent = '';
     page.classList.toggle('poem', !!b.poem);
     page.appendChild(el('h2', null, c.t));
-    page.appendChild(el('p', 'sub', c.s));
+    page.appendChild(el('p', 'sub', subOf(cur.ch)));
+    if (prefs.lang === 'both' && b.zs && b.zs[cur.ch]) page.appendChild(el('p', 'sub en', c.s));
     var zhp = b.zh[cur.ch], mode = prefs.lang;
     if (mode !== 'en' && !zhp) page.appendChild(el('p', 'notice', '这一章的中文还在翻译，先看英文。'));
     var add = function (i, l, text, pair) {
@@ -182,7 +184,7 @@
       if (zhp && (mode === 'zh' || mode === 'both')) add(i, 'zh', zhp[i], mode === 'both');
     });
     page.appendChild(el('p', 'end', cur.ch < b.ch.length - 1 ? '— 本章完 —' : '— 全书完 —'));
-    $('r-ch').textContent = c.t + (c.s ? ' · ' + c.s : '');
+    $('r-ch').textContent = c.t + (subOf(cur.ch) ? ' · ' + subOf(cur.ch) : '');
     $('prev').disabled = cur.ch === 0;
     $('next').disabled = cur.ch === b.ch.length - 1;
     requestAnimationFrame(function () {
@@ -277,7 +279,7 @@
     if (!cur) return;
     cur.b.ch.forEach(function (c, i) {
       var li = el('li'), b = el('button'); b.type = 'button'; b.setAttribute('data-i', i);
-      var t = el('span', 't'); t.appendChild(el('b', null, c.t)); t.appendChild(el('small', null, c.s));
+      var t = el('span', 't'); t.appendChild(el('b', null, c.t)); t.appendChild(el('small', null, subOf(i)));
       b.appendChild(t);
       if (cur.b.zh[i]) b.appendChild(el('span', 'zh-b', '中'));
       ['a', 'b'].forEach(function (w) { var p = posOf(w, cur.b.id); if (p && p.ch === i) { var d = el('span', 'dot ' + w); d.title = NAMES[w] + ' 在这一章'; b.appendChild(d); } });
@@ -440,7 +442,7 @@
   /* ---------- start ---------- */
   applyPrefs();
   renderWho();
-  fetch('books/shelf.json?v=1').then(function (r) { return r.json(); }).then(function (s) {
+  fetch('books/shelf.json?v=2').then(function (r) { return r.json(); }).then(function (s) {
     shelf = s; renderShelf();
     var id = location.hash.slice(1);
     if (id && shelf.some(function (b) { return b.id === id; })) openBook(id, null, null, false);

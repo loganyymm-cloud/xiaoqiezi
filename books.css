@@ -147,3 +147,4 @@ body.drawer-open .scrim { opacity: 1; pointer-events: auto; }
 .xnote { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; border: 0; font-size: 12px; line-height: 20px; text-indent: 0; vertical-align: 2px; color: #2d241c; background: rgba(143, 211, 255, .6); }
 .xnote.b { background: rgba(46, 200, 180, .45); }
 .bubble .xq { font-family: var(--font-book); opacity: .85; margin-bottom: 4px; }
+.page .sub.en { margin-top: -24px; font-size: 14px; opacity: .8; }
