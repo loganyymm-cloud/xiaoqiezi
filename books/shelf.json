@@ -271,5 +271,30 @@
    8
   ],
   "ol": "ja"
+ },
+ {
+  "id": "sid",
+  "zh": "悉达多",
+  "en": "Siddhartha",
+  "author": "黑塞 Hermann Hesse",
+  "tr": "英译：Olesch, Dreher, Coulter, Langer, Chaichenets（公有领域）",
+  "year": "1922",
+  "color": "#8a6a2f",
+  "chapters": 12,
+  "words": 39088,
+  "zh_ch": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11
+  ]
  }
 ]
