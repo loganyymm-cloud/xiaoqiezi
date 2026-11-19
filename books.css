@@ -134,3 +134,16 @@ body.drawer-open .scrim { opacity: 1; pointer-events: auto; }
 .btn.ghost { background: none; color: #2d241c; border-color: #d9ccb6; font-weight: 400; }
 .toast { position: fixed; z-index: 12; left: 50%; bottom: calc(70px + env(safe-area-inset-bottom)); transform: translateX(-50%); margin: 0; padding: 10px 16px; border-radius: 12px; background: #2d241c; color: #f7f1e6; font-size: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
 @media (max-width: 520px) { .page { padding: 26px 18px 50px; } .cover { width: 92px; height: 134px; } .cover b { font-size: 19px; } }
+
+/* Chinese */
+.lang-btn { flex: none; height: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--rline); background: none; color: var(--rink); font-size: 13px; }
+.page p.t.zh { font-family: var(--font-serif); font-size: calc(var(--fs) - 1px); line-height: 1.95; text-indent: 2em; text-align: justify; }
+.page.poem p.t.zh { text-indent: 0; padding-left: 0; line-height: 1.85; }
+.page p.t.zh.pair { margin-top: -.35em; padding-left: .9em; border-left: 2px solid var(--rline); text-indent: 0; color: var(--rink); }
+.page.poem p.t.zh.pair { padding-left: .9em; }
+.page .notice { margin: 0 auto 1.4em; padding: 10px 14px; border-radius: 12px; background: rgba(201, 154, 91, .14); color: var(--rmuted); font-size: 14px; text-align: center; }
+.zh-b { flex: none; padding: 1px 6px; border-radius: 6px; font-size: 11px; background: rgba(233, 183, 124, .18); color: var(--warm); }
+.zh-n { font-size: 12px; color: var(--muted); }
+.xnote { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; border: 0; font-size: 12px; line-height: 20px; text-indent: 0; vertical-align: 2px; color: #2d241c; background: rgba(143, 211, 255, .6); }
+.xnote.b { background: rgba(46, 200, 180, .45); }
+.bubble .xq { font-family: var(--font-book); opacity: .85; margin-bottom: 4px; }

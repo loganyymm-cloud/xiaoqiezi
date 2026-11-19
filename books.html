@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>一起读书</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap">
-<link rel="stylesheet" href="books.css?v=1">
+<link rel="stylesheet" href="books.css?v=2">
 </head>
 <body>
 <!-- the shelf -->
@@ -25,7 +25,7 @@
     <p class="live" id="live" hidden></p>
   </section>
   <ul class="shelf" id="shelf" aria-label="书架"></ul>
-  <p class="note">书都是公有领域的英文译本。</p>
+  <p class="note">英文是公有领域的经典译本；中文是 Claude 照着英文翻的，先翻了开头几章，后面接着翻。</p>
 </main>
 
 <!-- the reader -->
@@ -38,9 +38,11 @@
     <button class="icon" id="open-toc" type="button" aria-label="目录和笔记">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
     </button>
-    <button class="icon" id="open-aa" type="button" aria-label="字号和颜色"><span class="aa">Aa</span></button>
+    <button class="lang-btn" id="lang-btn" type="button" aria-label="切换语言">中文</button>
+    <button class="icon" id="open-aa" type="button" aria-label="字号、颜色和语言"><span class="aa">Aa</span></button>
   </header>
   <div class="aa-pop" id="aa-pop" hidden>
+    <div class="row"><span>语言</span><button class="chip" type="button" data-lang="zh">中文</button><button class="chip" type="button" data-lang="en">English</button><button class="chip" type="button" data-lang="both">对照</button></div>
     <div class="row"><span>字号</span><button class="chip" type="button" data-fs="-1">A−</button><button class="chip" type="button" data-fs="1">A+</button></div>
     <div class="row"><span>颜色</span><button class="chip" type="button" data-theme="paper">纸张</button><button class="chip" type="button" data-theme="sepia">暖黄</button><button class="chip" type="button" data-theme="night">夜间</button></div>
   </div>
@@ -84,6 +86,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=1"></script>
-<script src="books.js?v=1"></script>
+<script src="books.js?v=2"></script>
 </body>
 </html>

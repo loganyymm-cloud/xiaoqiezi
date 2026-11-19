@@ -8,7 +8,12 @@
   "year": "1532",
   "color": "#7a2e2a",
   "chapters": 28,
-  "words": 49222
+  "words": 49222,
+  "zh_ch": [
+   1,
+   2,
+   3
+  ]
  },
  {
   "id": "dante",
@@ -19,7 +24,10 @@
   "year": "1320",
   "color": "#23395b",
   "chapters": 100,
-  "words": 113008
+  "words": 113008,
+  "zh_ch": [
+   0
+  ]
  },
  {
   "id": "crime",
@@ -30,6 +38,9 @@
   "year": "1866",
   "color": "#3b3a36",
   "chapters": 40,
-  "words": 202617
+  "words": 202617,
+  "zh_ch": [
+   0
+  ]
  }
 ]

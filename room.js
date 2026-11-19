@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const $ = (id) => document.getElementById(id);
 const reduced = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -76,6 +77,13 @@ const W = 4.2, D = 3.6, H = 2.55;
 const CENTER = new THREE.Vector3(W / 2, .85, D / 2);
 const OFFSET = new THREE.Vector3(-10, 8.4, 10);
 const scene = new THREE.Scene();
+/* soft reflections from a neutral room, so materials look like real things */
+try {
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(new RoomEnvironment(), .04).texture;
+  scene.environmentIntensity = .32;
+  pm.dispose();
+} catch (e) { /* plain lighting is fine too */ }
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 100);
 camera.position.copy(CENTER).add(OFFSET);
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -107,7 +115,7 @@ key.target.position.copy(CENTER);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
 Object.assign(key.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 1, far: 25 });
-key.shadow.bias = -.0005; key.shadow.normalBias = .02;
+key.shadow.bias = -.0004; key.shadow.normalBias = .02; key.shadow.radius = 3;
 scene.add(key, key.target);
 const lamp = new THREE.PointLight(0xffb36b, 7, 0, 2);
 lamp.position.set(2.0, 2.3, 1.7);
@@ -247,6 +255,7 @@ function shell(g, o) {
     rod.rotation.z = Math.PI / 2; rod.position.set(wx, wy + wh + .2, .1); g.add(rod);
   }
   hot(glass, 'window'); hot(frame, 'window');
+  if (o.ao) aoStrips(g);
   return { sky, glass, center: new THREE.Vector3(wx, wy + wh / 2, .02), wx };
 }
 
@@ -291,6 +300,126 @@ function burst(at) {
   }
 }
 
+
+/* ---------------------------------------------------------------- touches that make it feel real */
+const blobTex = canvasTex(128, 128, (g, w, h) => {
+  const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+  gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(.55, 'rgba(0,0,0,.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+const fadeTex = canvasTex(4, 128, (g, w, h) => {
+  const gr = g.createLinearGradient(0, 0, 0, h);
+  gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+});
+/* a soft dark patch on the floor under something, where light can't reach */
+function contact(g, x, z, w, d, o) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, opacity: o == null ? .38 : o, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.set(x, .003, z); m.renderOrder = 1;
+  g.add(m); return m;
+}
+/* darker corners where the walls meet the floor */
+function aoStrips(g) {
+  const mat = (o) => new THREE.MeshBasicMaterial({ map: fadeTex, transparent: true, opacity: o, depthWrite: false });
+  const f1 = new THREE.Mesh(new THREE.PlaneGeometry(W, .45), mat(.22)); f1.rotation.x = -Math.PI / 2; f1.position.set(W / 2, .002, .225); g.add(f1);
+  const f2 = new THREE.Mesh(new THREE.PlaneGeometry(.45, D), mat(.22)); f2.rotation.x = -Math.PI / 2; f2.rotation.z = Math.PI / 2; f2.position.set(W - .225, .002, D / 2); g.add(f2);
+  f2.material.map = fadeTex.clone(); f2.material.map.needsUpdate = true;
+  const w1 = new THREE.Mesh(new THREE.PlaneGeometry(W, .5), mat(.14)); w1.position.set(W / 2, .25, .004); w1.rotation.z = Math.PI; g.add(w1);
+  const w2 = new THREE.Mesh(new THREE.PlaneGeometry(D, .5), mat(.14)); w2.position.set(W - .004, .25, D / 2); w2.rotation.set(0, -Math.PI / 2, Math.PI); g.add(w2);
+  const c1 = new THREE.Mesh(new THREE.PlaneGeometry(H, .35), mat(.12)); c1.position.set(W - .175, H / 2, .004); c1.rotation.z = Math.PI / 2; g.add(c1);
+  const c2 = new THREE.Mesh(new THREE.PlaneGeometry(H, .35), mat(.12)); c2.position.set(W - .004, H / 2, .175); c2.rotation.set(0, -Math.PI / 2, -Math.PI / 2); g.add(c2);
+  [f1, f2, w1, w2, c1, c2].forEach((m) => { m.renderOrder = 1; });
+}
+function woodTex(base, seed, horizontal) {
+  const r = seeded(seed);
+  return canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 90; i++) {
+      const y = r() * h, a = .04 + r() * .09;
+      g.strokeStyle = r() < .5 ? 'rgba(120,70,30,' + a + ')' : 'rgba(255,235,200,' + a * .8 + ')';
+      g.lineWidth = .6 + r() * 1.6;
+      g.beginPath(); g.moveTo(0, y);
+      for (let x = 0; x <= w; x += 16) g.lineTo(x, y + Math.sin(x * .03 + i) * 2.2 + (r() - .5) * 1.2);
+      g.stroke();
+    }
+    if (horizontal === false) { g.translate(w / 2, h / 2); g.rotate(Math.PI / 2); }
+  }, [1, 1]);
+}
+function fabricTex(base, seed) {
+  const r = seeded(seed);
+  return canvasTex(128, 128, (g, w, h) => {
+    g.fillStyle = base; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2600; i++) { g.fillStyle = r() < .5 ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.05)'; g.fillRect(r() * w, r() * h, 1, 1); }
+    for (let y = 0; y < h; y += 2) { g.fillStyle = 'rgba(0,0,0,.025)'; g.fillRect(0, y, w, 1); }
+  }, [3, 3]);
+}
+/* a keyboard with real little keys */
+function keyboard(g, x, y, z, w, d, caseCol, keyCol, accent) {
+  const grp = new THREE.Group(); grp.position.set(x, y, z); g.add(grp);
+  blk(grp, [0, 0, 0], [w, .018, d], M(caseCol, { roughness: .5 }), { r: .006 });
+  const rows = 5, cols = 14, kw = (w - .02) / cols, kd = (d - .02) / rows;
+  const geo = new RoundedBoxGeometry(kw * .82, .01, kd * .8, 2, .002);
+  const inst = new THREE.InstancedMesh(geo, M(keyCol, { roughness: .45 }), rows * cols);
+  const acc = new THREE.InstancedMesh(geo, M(accent, { roughness: .45 }), 6);
+  const mtx = new THREE.Matrix4(); let n = 0, a = 0;
+  for (let rr = 0; rr < rows; rr++) for (let cc = 0; cc < cols; cc++) {
+    mtx.makeTranslation(.01 + kw * (cc + .5), .022, .01 + kd * (rr + .5));
+    if ((rr === 0 && cc === 0) || (rr === 4 && (cc === 6 || cc === 7)) || (rr === 2 && cc === 13) || (rr === 0 && cc === 13) || (rr === 4 && cc === 0)) acc.setMatrixAt(a++, mtx);
+    else inst.setMatrixAt(n++, mtx);
+  }
+  inst.count = n; acc.count = a; inst.castShadow = true;
+  grp.add(inst, acc);
+  return grp;
+}
+/* a real-looking office chair */
+function officeChair(g, x, z, rotY, fabric, strap) {
+  const ch = new THREE.Group(); ch.position.set(x, 0, z); ch.rotation.y = rotY; g.add(ch);
+  const black = M(0x1b1c1f, { roughness: .45, metalness: .2 });
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * Math.PI * 2;
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(.045, .03, .3), black);
+    leg.position.set(Math.sin(a) * .15, .07, Math.cos(a) * .15); leg.rotation.y = a; leg.rotation.x = .08; leg.castShadow = true; ch.add(leg);
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.028, .028, .03, 16), M(0x2a2b2e, { roughness: .4 }));
+    wheel.rotation.z = Math.PI / 2; wheel.position.set(Math.sin(a) * .29, .03, Math.cos(a) * .29); wheel.castShadow = true; ch.add(wheel);
+  }
+  cyl(ch, [0, .07, 0], .045, .06, black, { r2: .055 });
+  cyl(ch, [0, .12, 0], .022, .3, M(0x8a8f96, { metalness: .8, roughness: .25 }));
+  blk(ch, [-.12, .4, -.12], [.24, .04, .24], black, { r: .01 });
+  const seat = blk(ch, [-.26, .43, -.25], [.52, .09, .5], fabric, { r: .045 });
+  seat.scale.y = 1;
+  /* curved back that hugs whoever sits in it */
+  const backMat = fabric.clone(); backMat.side = THREE.DoubleSide;
+  const backShell = new THREE.Mesh(new THREE.CylinderGeometry(.55, .55, .64, 24, 1, true, -.46, .92), backMat);
+  backShell.position.set(0, .88, -.33); backShell.rotation.x = .1; backShell.castShadow = true; ch.add(backShell);
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(.558, .558, .035, 24, 1, true, -.47, .94), M(0x141517, { roughness: .5, side: THREE.DoubleSide }));
+  rim.position.set(0, 1.2, -.3); rim.rotation.x = .1; ch.add(rim);
+  const rim2 = rim.clone(); rim2.position.set(0, .57, -.36); ch.add(rim2);
+  const spine = blk(ch, [-.03, .46, .17], [.06, .16, .07], black); spine.rotation.x = .2;
+  if (strap) {
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(.562, .562, .055, 24, 1, true, -.48, .96), M(strap, { roughness: .8, side: THREE.DoubleSide }));
+    st.position.set(0, .98, -.32); st.rotation.x = .1; ch.add(st);
+  }
+  for (const s of [-1, 1]) {
+    blk(ch, [s * .27 - .015, .46, -.02], [.03, .22, .03], black);
+    blk(ch, [s * .27 - .04, .68, -.17], [.08, .03, .26], M(0x222326, { roughness: .6 }), { r: .012 });
+  }
+  return ch;
+}
+/* a coat on a hanger */
+function coat(g, x, z, len, col, rot) {
+  const grp = new THREE.Group(); grp.position.set(x, 1.62, z); grp.rotation.y = rot || 0; g.add(grp);
+  const wire = M(0xd8dadc, { metalness: .7, roughness: .3 });
+  const hook = new THREE.Mesh(new THREE.TorusGeometry(.025, .004, 6, 16, Math.PI * 1.3), wire); hook.position.set(0, .03, 0); hook.rotation.y = Math.PI / 2; grp.add(hook);
+  const fab = M(col, { roughness: .95 });
+  const body = blk(grp, [-.2, -len, -.05], [.4, len - .05, .1], fab, { r: .045 });
+  body.scale.set(1, 1, 1);
+  const sh = blk(grp, [-.23, -.16, -.055], [.46, .14, .11], fab, { r: .05 });
+  sh.rotation.z = 0;
+  for (const s of [-1, 1]) { const sl = blk(grp, [s * .2 - .045, -len * .78, -.045], [.09, len * .7, .09], fab, { r: .04 }); sl.rotation.z = s * .06; }
+  blk(grp, [-.015, -len + .02, .045], [.03, len - .2, .008], M(0x0d0e10), { cast: false });
+  return grp;
+}
+
 /* ================================================================ Logan's room in Toronto: his photo, with details from his 3D picture */
 function carpet(base, seed) {
   const r = seeded(seed);
@@ -330,160 +459,219 @@ function shoe(g, x, z, kind) {
   return grp;
 }
 function buildLogan(g) {
-  const win = shell(g, { wall: 0x9eac96, floor: 0xc9a67b, seed: 7, wx: 2.05, rail: true });
-  const white = M(0xeeeeea, { roughness: .55 }), black = M(0x1e1f22, { roughness: .6 }), pine = M(0xd8af78, { roughness: .7 });
-  const navy = M(0x1f2738, { roughness: .9 }), ink = M(0x17181b, { roughness: .8 });
+  const win = shell(g, { wall: 0x9eac96, floor: 0xc9a67b, seed: 7, wx: 2.05, rail: true, ao: true });
+  const white = M(0xf1f1ee, { roughness: .42 }), black = M(0x1e1f22, { roughness: .55 });
+  const pine = M(0xffffff, { map: woodTex('#d8af78', 3), roughness: .62 });
+  const pineLight = M(0xffffff, { map: woodTex('#e3c08f', 5), roughness: .65 });
+  const navy = M(0xffffff, { map: fabricTex('#1f2738', 21), roughness: .95 }), ink = M(0x17181b, { roughness: .7 });
 
-  /* white desk with a little shelf on the right */
-  blk(g, [1.4, .72, .03], [1.3, .04, .62], white);
-  for (const z of [.06, .6]) blk(g, [1.42, 0, z], [.035, .72, .035], white);
-  for (const x of [2.2, 2.66]) blk(g, [x, 0, .05], [.025, .72, .6], white);
-  for (const y of [.06, .32]) blk(g, [2.2, y, .05], [.485, .02, .6], white);
-  blk(g, [2.26, .34, .12], [.32, .1, .3], black);
-  blk(g, [2.25, .08, .1], [.36, .16, .4], M(0x2b2d31));
+  /* outlets and a light switch on the walls */
+  const plate = M(0xf4f3ef, { roughness: .4 });
+  [[1.05, .3], [2.95, .3]].forEach(([x, y]) => { blk(g, [x - .04, y - .06, 0], [.08, .12, .008], plate, { cast: false }); for (const dy of [-.025, .025]) blk(g, [x - .012, y + dy - .008, .008], [.024, .016, .002], M(0x5c5f63), { cast: false }); });
+  blk(g, [W - .008, 1.1, 3.38], [.008, .12, .08], plate, { cast: false });
+
+  /* white desk on thin legs, with a little shelf on the right */
+  blk(g, [1.4, .72, .03], [1.3, .035, .62], white, { r: .008 });
+  for (const z of [.06, .6]) blk(g, [1.42, 0, z], [.03, .72, .03], white);
+  for (const x of [2.2, 2.66]) blk(g, [x, 0, .05], [.022, .72, .6], white);
+  for (const y of [.05, .33]) blk(g, [2.2, y, .05], [.482, .018, .6], white);
+  contact(g, 2.05, .35, 1.6, .9, .3);
+  /* books on the shelf under the desk: our reading corner */
+  const under = new THREE.Group(); g.add(under);
+  const covers = [0x7a2e2a, 0x23395b, 0x3b3a36, 0xc9a35d, 0x5b7a5a, 0xe8e0d0, 0x8d4b6a, 0x2f4f6f];
+  let bx0 = 2.235;
+  covers.forEach((col, i) => {
+    const t = .035 + (i % 3) * .012, h = .2 + (i % 4) * .025;
+    const bk = blk(under, [bx0, .068, .1], [t, h, .17 + (i % 2) * .03], M(col, { roughness: .7 }), { r: .004 });
+    blk(under, [bx0 + .002, .068 + h * .7, .1 + .171 + (i % 2) * .03], [t - .004, .02, .002], M(0xe9d9b4), { cast: false });
+    bx0 += t + .006;
+    if (i === 7) { bk.rotation.z = -.28; bk.position.x += .03; }
+  });
+  for (let i = 0; i < 4; i++) blk(under, [2.25, .348 + i * .032, .12 + (i % 2) * .02], [.24 - i * .01, .03, .18], M([0x23395b, 0x7a2e2a, 0x3b3a36, 0xd8cfbf][i], { roughness: .7 }), { r: .004 });
+  for (let i = 0; i < 3; i++) blk(under, [1.62 + (i % 2) * .02, i * .045, .14], [.26, .045, .2], M([0xc9a35d, 0x23395b, 0x5b7a5a][i], { roughness: .7 }), { r: .005 });
+  hot(under, 'books');
   /* laptop up on a stand */
-  const stand = M(0xb7bcc2, { metalness: .6, roughness: .35 });
-  blk(g, [1.47, .76, .1], [.03, .09, .24], stand); blk(g, [1.79, .76, .1], [.03, .09, .24], stand);
+  const stand = M(0xb7bcc2, { metalness: .75, roughness: .3 });
+  for (const x of [1.47, 1.79]) { const s = blk(g, [x, .755, .1], [.025, .1, .24], stand, { r: .006 }); s.rotation.x = .05; }
   const lt = new THREE.Group(); lt.position.set(1.645, .85, .23); lt.rotation.x = .22; g.add(lt);
-  blk(lt, [-.18, 0, -.13], [.36, .016, .26], black);
-  const lid = new THREE.Group(); lid.position.set(0, .016, -.13); lid.rotation.x = -1.4; lt.add(lid);
-  blk(lid, [-.18, 0, 0], [.36, .24, .01], black);
+  blk(lt, [-.18, 0, -.13], [.36, .014, .26], M(0x232428, { metalness: .5, roughness: .35 }), { r: .006 });
+  const lid = new THREE.Group(); lid.position.set(0, .014, -.13); lid.rotation.x = -.35; lt.add(lid);
+  blk(lid, [-.18, 0, 0], [.36, .24, .008], M(0x232428, { metalness: .5, roughness: .35 }), { r: .005 });
+  const lscr = new THREE.Mesh(new THREE.PlaneGeometry(.33, .21), new THREE.MeshBasicMaterial({ color: 0x223049, toneMapped: false }));
+  lscr.position.set(0, .12, .009); lid.add(lscr);
   /* the monitor that shows our countdown */
   const scr = screenTex();
-  blk(g, [1.98, .76, .14], [.2, .012, .12], M(0x26272b));
-  blk(g, [2.065, .772, .19], [.03, .16, .03], M(0x26272b));
-  const bezel = blk(g, [1.86, .86, .17], [.5, .33, .025], M(0x141518));
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(.47, .3), new THREE.MeshBasicMaterial({ map: scr, toneMapped: false }));
-  face.position.set(2.11, 1.025, .197); g.add(face);
+  blk(g, [1.98, .755, .12], [.2, .01, .14], M(0x2a2b2f, { metalness: .4, roughness: .4 }), { r: .004 });
+  blk(g, [2.065, .765, .15], [.03, .17, .025], M(0x2a2b2f, { metalness: .4, roughness: .4 }));
+  const bezel = blk(g, [1.85, .86, .165], [.52, .34, .02], M(0x111214, { roughness: .4 }), { r: .006 });
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(.5, .315), new THREE.MeshBasicMaterial({ map: scr, toneMapped: false }));
+  face.position.set(2.11, 1.03, .186); g.add(face);
   hot(bezel, 'screen'); hot(face, 'screen');
-  /* keyboard, glasses, a thermos, a water bottle, the little round clock */
-  blk(g, [1.62, .76, .42], [.42, .02, .14], M(0xe7e0d2), { r: .008 });
-  for (let i = 0; i < 4; i++) blk(g, [1.65 + i * .09, .781, .45], [.035, .005, .035], M(0xe9733b), { cast: false });
+  /* her photo in a little wooden frame */
+  const photoTex = new THREE.TextureLoader().load('img/her.jpg?v=1');
+  photoTex.colorSpace = THREE.SRGBColorSpace; photoTex.anisotropy = 4;
+  const pf = new THREE.Group(); pf.position.set(1.52, .755, .42); pf.rotation.set(-.12, -.45, 0); g.add(pf);
+  blk(pf, [-.075, 0, -.012], [.15, .2, .024], M(0xffffff, { map: woodTex('#b0814f', 9), roughness: .5 }), { r: .005 });
+  const mat = new THREE.Mesh(new THREE.PlaneGeometry(.128, .178), M(0xf6f1e8, { roughness: .9 }));
+  mat.position.set(0, .1, .0125); pf.add(mat);
+  const pic = new THREE.Mesh(new THREE.PlaneGeometry(.104, .139), new THREE.MeshStandardMaterial({ map: photoTex, roughness: .35 }));
+  pic.position.set(0, .1, .0128); pf.add(pic);
+  const leg = blk(pf, [-.012, 0, -.08], [.024, .16, .01], M(0x8a6038)); leg.rotation.x = .35;
+  hot(pf, 'photo');
+  contact(g, 1.52, .43, .2, .12, .3);
+  /* keyboard, mouse on a pad, glasses, bottles, the little round clock */
+  blk(g, [1.66, .755, .36], [.6, .004, .26], M(0x2a2c30, { roughness: .9 }), { cast: false });
+  keyboard(g, 1.7, .759, .38, .42, .14, 0xece6d8, 0xf4efe4, 0xe9733b);
+  blk(g, [2.17, .759, .42], [.06, .028, .1], M(0xf1ede4, { roughness: .4 }), { r: .014 });
   const gl = M(0x1b1b1d, { metalness: .3, roughness: .4 });
-  for (const dx of [0, .08]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(.032, .005, 8, 24), gl); ring.rotation.x = -Math.PI / 2.4; ring.position.set(1.5 + dx, .79, .5); g.add(ring); }
-  cyl(g, [2.6, .76, .12], .032, .2, M(0x2f3236, { metalness: .4, roughness: .4 }));
-  cyl(g, [2.52, .76, .18], .03, .19, M(0x2f63b0, { roughness: .3 }));
-  ball(g, [2.48, .79, .3], .028, M(0xf2efe6));
-  const disc = cdPlayer(g, [2.43, .76, .48], 0xc9ccd2);
+  for (const dx of [0, .075]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(.03, .004, 8, 24), gl); ring.rotation.x = -Math.PI / 2.4; ring.position.set(1.42 + dx + .02, .775, .58); g.add(ring); }
+  blk(g, [1.448, .772, .576], [.03, .004, .006], gl, { cast: false });
+  cyl(g, [2.6, .755, .12], .032, .21, M(0x2f3236, { metalness: .6, roughness: .3 }));
+  cyl(g, [2.6, .965, .12], .026, .03, M(0x1b1c1f));
+  cyl(g, [2.52, .755, .2], .03, .19, new THREE.MeshPhysicalMaterial({ color: 0x5b8fd6, roughness: .15, transmission: .35, transparent: true, opacity: .9 }));
+  cyl(g, [2.52, .945, .2], .02, .03, M(0x1f3f7a));
+  const clock = new THREE.Mesh(new THREE.SphereGeometry(.035, 24, 16), M(0xf5f2ea, { roughness: .3 })); clock.position.set(2.47, .79, .32); clock.scale.set(1, .9, .6); g.add(clock);
+  /* power strip and cables */
+  blk(g, [2.3, .755, .06], [.28, .03, .06], M(0xf3f3f0, { roughness: .4 }), { r: .01 });
+  for (let i = 0; i < 3; i++) blk(g, [2.33 + i * .08, .785, .07], [.035, .03, .04], M(0x2a2b2e), { r: .006 });
+  const cable = (pts, col) => {
+    const curve = new THREE.CatmullRomCurve3(pts.map((q) => new THREE.Vector3(q[0], q[1], q[2])));
+    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, .005, 6, false), M(col || 0x1a1a1c, { roughness: .6 }));
+    m.castShadow = true; g.add(m);
+  };
+  cable([[2.07, .8, .14], [2.12, .77, .08], [2.33, .8, .08]]);
+  cable([[1.8, .86, .13], [1.95, .77, .06], [2.4, .8, .085]]);
+  cable([[2.55, .78, .1], [2.62, .76, .04], [2.64, .4, .03], [2.6, .02, .05], [2.9, .01, .05]], 0xf0f0ee);
+  const disc = cdPlayer(g, [2.43, .755, .5], 0xc9ccd2);
 
-  /* black drawers left of the desk, and the see-through storage box in the corner */
-  blk(g, [.94, 0, .03], [.44, .7, .46], ink);
-  for (const y of [.23, .46]) blk(g, [.95, y, .49], [.42, .006, .006], M(0x0b0b0c), { cast: false });
-  for (const y of [.13, .36, .59]) blk(g, [1.12, y, .49], [.08, .015, .015], M(0x55585e));
-  /* a few books on top of the drawers: our reading room */
+  /* black drawers left of the desk, a few books on top, the see-through box in the corner */
+  blk(g, [.94, 0, .03], [.44, .7, .46], ink, { r: .01 });
+  for (const y of [.235, .465]) blk(g, [.95, y, .487], [.42, .006, .006], M(0x0b0b0c), { cast: false });
+  for (const y of [.13, .36, .59]) blk(g, [1.11, y, .49], [.1, .014, .016], M(0x6a6d72, { metalness: .6, roughness: .3 }), { r: .004 });
+  contact(g, 1.16, .26, .7, .7, .35);
   const shelfBooks = new THREE.Group(); g.add(shelfBooks);
   [[0x7a2e2a, .26], [0x23395b, .3], [0x3b3a36, .24], [0xc9a35d, .22]].forEach(([col, h], i) => {
-    const bk = blk(shelfBooks, [1.0 + i * .075, .7, .1], [.06, h, .22], M(col, { roughness: .7 }));
+    const bk = blk(shelfBooks, [1.0 + i * .075, .7, .1], [.06, h, .22], M(col, { roughness: .7 }), { r: .004 });
     if (i === 3) { bk.rotation.z = -.35; bk.position.x += .04; }
   });
   hot(shelfBooks, 'books');
-  blk(g, [.05, 0, .1], [.5, .38, .62], M(0xa7afb6, { transparent: true, opacity: .85, roughness: .4 }));
+  const box = blk(g, [.05, 0, .1], [.5, .38, .62], new THREE.MeshPhysicalMaterial({ color: 0xc9d1d8, roughness: .25, transmission: .55, transparent: true, opacity: .8, thickness: .02 }), { r: .015 });
+  box.castShadow = false;
+  blk(g, [.04, .37, .09], [.52, .025, .64], M(0x9aa3ab, { roughness: .4 }), { r: .01 });
+  for (let i = 0; i < 3; i++) blk(g, [.1 + i * .14, .02, .2], [.12, .2 + i * .04, .4], M([0x6b5a4a, 0x3a5070, 0x8a8f96][i], { roughness: .9 }), { r: .02 });
+  contact(g, .3, .41, .7, .8, .3);
 
   /* office chair with the green strap */
-  const ch = new THREE.Group(); ch.position.set(2.02, 0, 1.0); ch.rotation.y = -.18; g.add(ch);
-  for (let i = 0; i < 5; i++) {
-    const a = i / 5 * Math.PI * 2, leg = blk(ch, [-.02, .05, 0], [.04, .025, .28], black);
-    leg.position.set(Math.sin(a) * .14, .06, Math.cos(a) * .14); leg.rotation.y = a;
-    ball(ch, [Math.sin(a) * .27, .03, Math.cos(a) * .27], .03, black);
-  }
-  cyl(ch, [0, .07, 0], .025, .36, M(0x3a3c40, { metalness: .6, roughness: .3 }));
-  blk(ch, [-.25, .42, -.23], [.5, .08, .47], M(0x26272b), { r: .03 });
-  const back = blk(ch, [-.23, .5, .2], [.46, .62, .06], M(0x26272b), { r: .03 });
-  back.rotation.x = .12;
-  blk(ch, [-.245, .66, .19], [.49, .05, .085], M(0x2fa36b), { cast: false });
-  for (const s of [-1, 1]) blk(ch, [s * .26 - .02, .48, -.12], [.04, .2, .04], black);
+  officeChair(g, 2.02, 1.02, -.2, M(0xffffff, { map: fabricTex('#26272b', 31), roughness: .85 }), 0x2fa36b);
+  contact(g, 2.02, 1.02, .75, .75, .35);
 
-  /* his bed along the right wall: pine frame, blue plaid sheet */
+  /* his bed along the right wall: pine frame, blue plaid sheet, pillow and blanket */
   const bx = W - 1.0, bz = .08, bl = 2.1;
   for (const x of [bx, W - .07]) {
-    blk(g, [x, .2, bz], [.07, .12, bl], pine);
-    blk(g, [x, 0, bz], [.07, .78, .07], pine);
-    blk(g, [x, 0, bz + bl - .07], [.07, .62, .07], pine);
+    blk(g, [x, .2, bz], [.07, .12, bl], pine, { r: .008 });
+    blk(g, [x, 0, bz], [.07, .8, .07], pine, { r: .008 });
+    blk(g, [x, 0, bz + bl - .07], [.07, .64, .07], pine, { r: .008 });
+    blk(g, [x + .005, .8, bz + .005], [.06, .015, .06], pineLight, { r: .006 });
   }
-  for (const y of [.42, .64]) blk(g, [bx + .07, y, bz], [.86, .07, .05], pine);
-  blk(g, [bx + .07, .5, bz + bl - .06], [.86, .07, .05], pine);
-  for (let i = 1; i <= 3; i++) blk(g, [bx + .07 + i * .215 - .025, .26, bz + bl - .055], [.05, .25, .04], pine);
+  for (const y of [.42, .66]) blk(g, [bx + .07, y, bz + .01], [.86, .07, .05], pine, { r: .008 });
+  blk(g, [bx + .07, .52, bz + bl - .06], [.86, .07, .05], pine, { r: .008 });
+  for (let i = 1; i <= 3; i++) blk(g, [bx + .07 + i * .215 - .025, .26, bz + bl - .055], [.05, .26, .04], pineLight, { r: .006 });
   const pl = plaid();
-  const side = M(0xffffff, { map: pl, roughness: .95 });
-  const mattress = new THREE.Mesh(new THREE.BoxGeometry(.9, .2, bl - .1), [side, side, side, M(0x22305e), side, side]);
-  mattress.position.set(bx + .5, .42, bz + bl / 2); mattress.castShadow = mattress.receiveShadow = true; g.add(mattress);
-  blk(g, [bx + .2, .52, bz + .2], [.5, .07, .38], M(0xdfe3c9), { r: .03 });
-  blk(g, [bx + .12, .52, bz + .14], [.07, .012, .14], black);
+  const sheetMat = M(0xffffff, { map: pl, roughness: .95 });
+  const mattress = blk(g, [bx + .05, .3, bz + .06], [.9, .22, bl - .12], sheetMat, { r: .05 });
+  mattress.material.map.repeat.set(1.6, 1.6);
   hot(mattress, 'bed');
+  const pillow = blk(g, [bx + .16, .5, bz + .12], [.62, .1, .34], M(0xffffff, { map: fabricTex('#e9ecf2', 41), roughness: .95 }), { r: .05 });
+  pillow.rotation.x = -.08; pillow.scale.y = .9;
+  const blanket = blk(g, [bx + .22, .51, bz + .62], [.5, .09, .4], M(0xffffff, { map: fabricTex('#dfe3c9', 43), roughness: 1 }), { r: .035 });
+  blanket.rotation.y = .06;
+  blk(g, [bx + .36, .52, bz + 1.3], [.075, .01, .15], M(0x111214, { roughness: .3 }), { r: .004 });
+  contact(g, bx + .5, bz + bl / 2, 1.25, 2.4, .45);
+  /* boots under the bed */
+  shoe(g, bx + .3, bz + 1.75, 'boot'); shoe(g, bx + .3, bz + 1.6, 'boot');
   /* pink slippers by the bed, waiting for her */
   const sl = new THREE.Group(); g.add(sl);
   for (const dz of [0, .13]) {
-    blk(sl, [bx - .32, 0, 1.2 + dz], [.26, .035, .1], M(0xf3c3c6, { roughness: 1 }), { r: .02 });
-    blk(sl, [bx - .32, .03, 1.205 + dz], [.13, .05, .09], M(0xf6cfd2, { roughness: 1 }), { r: .03 });
+    blk(sl, [bx - .32, 0, 1.2 + dz], [.26, .03, .1], M(0xffffff, { map: fabricTex('#f3c3c6', 51), roughness: 1 }), { r: .015 });
+    blk(sl, [bx - .32, .025, 1.205 + dz], [.13, .05, .09], M(0xffffff, { map: fabricTex('#f6cfd2', 52), roughness: 1 }), { r: .03 });
   }
   hot(sl, 'slippers');
 
   /* hooks on the right wall with bags and the bunny keychain; shoes lined up underneath */
-  const hm = M(0xc9ccd0, { metalness: .6, roughness: .3 });
-  for (const z of [2.42, 2.82, 3.22]) cyl(g, [W - .05, 1.86, z], .012, .05, hm);
-  blk(g, [W - .19, 1.28, 2.28], [.14, .27, .3], ink, { r: .04 });
+  const hm = M(0xc9ccd0, { metalness: .7, roughness: .3 });
+  for (const z of [2.42, 2.82, 3.22]) { cyl(g, [W - .05, 1.86, z], .012, .05, hm); }
+  blk(g, [W - .19, 1.28, 2.28], [.14, .27, .3], ink, { r: .05 });
   blk(g, [W - .1, 1.5, 2.41], [.015, .36, .015], ink, { cast: false });
-  blk(g, [W - .2, 1.12, 2.66], [.16, .62, .32], M(0x1b1c1f), { r: .05 });
-  blk(g, [W - .3, .98, 3.0], [.26, .7, .44], navy, { r: .08 });
-  blk(g, [W - .36, 1.02, 3.08], [.08, .3, .3], M(0x232c40), { r: .05 });
-  for (const z of [3.06, 3.38]) blk(g, [W - .08, 1.2, z], [.04, .66, .04], navy, { cast: false });
+  blk(g, [W - .2, 1.12, 2.66], [.16, .62, .32], M(0xffffff, { map: fabricTex('#1b1c1f', 61), roughness: .9 }), { r: .06 });
+  blk(g, [W - .21, 1.5, 2.7], [.005, .006, .24], M(0x9aa0a8, { metalness: .7 }), { cast: false });
+  const pack = blk(g, [W - .3, .98, 3.0], [.26, .7, .44], navy, { r: .1 });
+  blk(g, [W - .36, 1.02, 3.08], [.08, .3, .3], navy, { r: .06 });
+  blk(g, [W - .365, 1.2, 3.1], [.004, .005, .26], M(0x9aa0a8, { metalness: .7 }), { cast: false });
+  for (const z of [3.06, 3.38]) blk(g, [W - .08, 1.15, z], [.04, .7, .045], navy, { cast: false, r: .015 });
+  hot(pack, 'bag');
   const bunny = new THREE.Group(); bunny.position.set(W - .25, 1.18, 2.98); g.add(bunny);
-  const fur = M(0xdcc6a6, { roughness: 1 });
+  const fur = M(0xffffff, { map: fabricTex('#dcc6a6', 71), roughness: 1 });
   ball(bunny, [0, 0, 0], .05, fur); ball(bunny, [0, .07, 0], .038, fur);
   for (const s of [-1, 1]) { const e = ball(bunny, [0, .12, s * .016], .016, fur); e.scale.set(.7, 2.2, .7); }
   ball(bunny, [-.035, .075, -.012], .006, M(0x2a1d14)); ball(bunny, [-.035, .075, .012], .006, M(0x2a1d14));
+  blk(bunny, [-.002, .08, -.002], [.004, .2, .004], M(0xc9ccd0, { metalness: .7 }), { cast: false });
   hot(bunny, 'plush');
   [[2.36, 'boot'], [2.5, 'boot'], [2.72, 'red'], [2.86, 'red'], [3.06, 'red'], [3.2, 'red'], [3.4, 'black']].forEach(([z, k]) => shoe(g, W - .2, z, k));
+  contact(g, W - .2, 2.9, .4, 1.3, .3);
 
-  /* the other pine bed frame on the left: no mattress, suitcases standing on it */
+  /* the other pine bed frame on the left: slats, suitcases standing on it */
   const fx0 = .05, fx1 = .98, fz0 = 1.3, fz1 = 3.45;
-  for (const x of [fx0, fx1 - .06]) blk(g, [x, .16, fz0], [.06, .12, fz1 - fz0], pine);
-  for (const x of [fx0, fx1 - .06]) { blk(g, [x, 0, fz0], [.06, .62, .06], pine); blk(g, [x, 0, fz1 - .06], [.06, .4, .06], pine); }
-  for (const y of [.36, .54]) blk(g, [fx0 + .06, y, fz0], [fx1 - fx0 - .12, .06, .05], pine);
-  for (let i = 0; i < 9; i++) blk(g, [fx0 + .06, .24, fz0 + .08 + i * .235], [fx1 - fx0 - .12, .025, .15], M(0xe2bf8c, { roughness: .75 }));
-  blk(g, [fx0 + .06, .26, fz1 - .06], [fx1 - fx0 - .12, .1, .05], pine);
+  for (const x of [fx0, fx1 - .06]) blk(g, [x, .16, fz0], [.06, .12, fz1 - fz0], pine, { r: .008 });
+  for (const x of [fx0, fx1 - .06]) { blk(g, [x, 0, fz0], [.06, .62, .06], pine, { r: .008 }); blk(g, [x, 0, fz1 - .06], [.06, .4, .06], pine, { r: .008 }); }
+  for (const y of [.36, .54]) blk(g, [fx0 + .06, y, fz0], [fx1 - fx0 - .12, .06, .05], pine, { r: .008 });
+  for (let i = 0; i < 9; i++) blk(g, [fx0 + .06, .24, fz0 + .08 + i * .235], [fx1 - fx0 - .12, .022, .15], pineLight, { r: .004 });
+  blk(g, [fx0 + .06, .26, fz1 - .06], [fx1 - fx0 - .12, .1, .05], pine, { r: .008 });
+  contact(g, .52, 2.38, 1.2, 2.4, .4);
   const cases = new THREE.Group(); g.add(cases);
   [[.3, 1.62, 0x22427f, .58], [.3, 2.02, 0x234885, .52], [.72, 1.82, 0x22427f, .46]].forEach(([x, z, col, h]) => suitcase(cases, x, .265, z, col, h));
   suitcase(cases, .62, .265, 2.46, 0xf1f0ec, .5);
   hot(cases, 'suitcase');
   blk(g, [.2, .265, 2.85], [.5, .2, .4], M(0x8d939b, { roughness: .8 }), { r: .02 });
 
-  /* clothes rack with coats and bags */
-  const rack = M(0x1a1b1e, { metalness: .5, roughness: .4 });
+  /* clothes rack with coats on hangers, and bags */
+  const rack = M(0x1a1b1e, { metalness: .6, roughness: .35 });
   const rx = 1.32;
   for (const z of [1.3, 2.6]) {
-    cyl(g, [rx, 0, z], .014, 1.66, rack);
-    blk(g, [rx - .18, .04, z - .015], [.36, .03, .03], rack);
-    ball(g, [rx - .18, .03, z], .03, rack); ball(g, [rx + .18, .03, z], .03, rack);
+    cyl(g, [rx, 0, z], .013, 1.66, rack);
+    blk(g, [rx - .2, .05, z - .012], [.4, .024, .024], rack, { r: .008 });
+    for (const s of [-1, 1]) { const wv = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .022, 14), M(0x111214)); wv.rotation.z = Math.PI / 2; wv.position.set(rx + s * .18, .025, z); g.add(wv); }
   }
-  const bar = new THREE.Mesh(new THREE.CylinderGeometry(.014, .014, 1.36, 10), rack);
-  bar.rotation.x = Math.PI / 2; bar.position.set(rx, 1.65, 1.95); g.add(bar);
-  [0x1f2433, 0x17181c, 0x3b404b, 0x23293a, 0x1a1c20].forEach((col, i) => {
-    const z = 1.45 + i * .23, len = .7 + (i % 3) * .14;
-    blk(g, [rx - .23, 1.6 - len, z - .05], [.46, len, .1], M(col, { roughness: 1 }), { r: .04 });
-  });
-  blk(g, [rx - .06, .9, 2.42], [.14, .3, .3], M(0x6b3f22, { roughness: .55 }), { r: .04 });
-  blk(g, [rx, 1.2, 2.55], [.014, .42, .014], M(0x5a3520), { cast: false });
-  blk(g, [rx - .08, 1.1, 1.3], [.17, .19, .3], M(0x5c6670), { r: .04 });
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(.013, .013, 1.34, 12), rack);
+  bar.rotation.x = Math.PI / 2; bar.position.set(rx, 1.65, 1.95); bar.castShadow = true; g.add(bar);
+  [[0x1f2433, .78], [0x17181c, .95], [0x3b404b, .7], [0x23293a, .88], [0x1a1c20, .8]].forEach(([col, len], i) => coat(g, rx, 1.47 + i * .23, len, col, Math.PI / 2 + (i % 2 ? .06 : -.05)));
+  blk(g, [rx - .06, .92, 2.42], [.13, .28, .3], M(0x6b3f22, { roughness: .5 }), { r: .04 });
+  blk(g, [rx, 1.18, 2.55], [.012, .46, .012], M(0x5a3520), { cast: false });
+  blk(g, [rx - .08, 1.1, 1.3], [.16, .19, .3], M(0x5c6670, { roughness: .7 }), { r: .04 });
+  contact(g, rx, 1.95, .8, 1.7, .32);
 
-  /* striped laundry basket */
+  /* striped laundry basket with a shirt sticking out */
   const bm = M(0xffffff, { map: stripes(), roughness: 1, side: THREE.DoubleSide });
   const basket = new THREE.Mesh(new THREE.CylinderGeometry(.24, .22, .55, 4, 1, true), bm);
   basket.rotation.y = Math.PI / 4; basket.position.set(1.98, .275, 2.25); basket.castShadow = true; g.add(basket);
   blk(g, [1.83, .02, 2.1], [.3, .02, .3], M(0x3d4045), { cast: false });
+  const shirt = blk(g, [1.86, .42, 2.12], [.24, .14, .22], M(0xffffff, { map: fabricTex('#c9d6e6', 81), roughness: 1 }), { r: .05 });
+  shirt.rotation.set(.2, .3, -.15);
+  contact(g, 1.98, 2.25, .55, .55, .4);
 
   /* small black side table: the camera on top, a pack of water underneath */
-  for (const x of [2.38, 2.78]) for (const z of [2.75, 3.13]) blk(g, [x, 0, z], [.022, .55, .022], black);
-  blk(g, [2.38, .53, 2.75], [.42, .025, .4], M(0xd9d9d6));
-  blk(g, [2.38, .03, 2.75], [.42, .02, .4], black);
-  const wm = new THREE.MeshPhysicalMaterial({ color: 0x9fd1ff, transmission: .6, roughness: .15, transparent: true, opacity: .75 });
-  for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { cyl(g, [2.47 + i * .1, .05, 2.85 + j * .14], .04, .22, wm); cyl(g, [2.47 + i * .1, .27, 2.85 + j * .14], .015, .03, M(0x2d6fd4)); }
+  for (const x of [2.38, 2.78]) for (const z of [2.75, 3.13]) blk(g, [x, 0, z], [.02, .55, .02], black);
+  blk(g, [2.37, .53, 2.74], [.44, .025, .42], M(0xd9d9d6, { roughness: .35 }), { r: .006 });
+  blk(g, [2.38, .03, 2.75], [.42, .015, .4], black);
+  const wm = new THREE.MeshPhysicalMaterial({ color: 0xbfe0ff, transmission: .7, roughness: .1, transparent: true, opacity: .7, thickness: .05 });
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { cyl(g, [2.47 + i * .1, .045, 2.85 + j * .14], .04, .22, wm, { seg: 18 }); cyl(g, [2.47 + i * .1, .265, 2.85 + j * .14], .016, .03, M(0x2d6fd4)); }
   const cam = new THREE.Group(); cam.position.set(2.59, .555, 2.95); cam.rotation.y = -.5; g.add(cam);
-  blk(cam, [-.08, 0, -.05], [.16, .1, .09], M(0x1b1c1f), { r: .015 });
-  const lens = cyl(cam, [0, 0, 0], .035, .07, M(0x2a2b2f, { metalness: .4, roughness: .3 }));
+  blk(cam, [-.08, 0, -.05], [.16, .1, .09], M(0x1b1c1f, { roughness: .5 }), { r: .015 });
+  const lens = cyl(cam, [0, 0, 0], .035, .07, M(0x2a2b2f, { metalness: .5, roughness: .25 }));
   lens.rotation.x = Math.PI / 2; lens.position.set(0, .05, .075);
+  const glass = new THREE.Mesh(new THREE.CircleGeometry(.026, 24), M(0x0a1424, { metalness: .9, roughness: .05 })); glass.position.set(0, .05, .111); cam.add(glass);
   blk(cam, [-.075, .1, -.03], [.04, .02, .04], M(0x1b1c1f));
   hot(cam, 'camera');
+  contact(g, 2.58, 2.94, .6, .6, .35);
 
   return { win, disc, screens: [scr] };
 }
@@ -716,10 +904,11 @@ function build(w) {
 let skyAt = 0, skyAnim = false;
 function updateLights() {
   const h = HOMES[roomOf], s = Sun ? Sun.height(h.lat, h.lng) : .5, day = smooth(-.1, .2, s);
-  hemi.intensity = (lightsOn ? .55 : .14) + day * .75;
-  key.intensity = .35 + day * 1.3;
+  hemi.intensity = (lightsOn ? .32 : .1) + day * .8;
+  key.intensity = .25 + day * 1.35;
   key.color.setHex(day > .3 ? 0xfff0dc : 0x9fb0e0);
-  lamp.intensity = lightsOn ? 7 + (1 - day) * 5 : 0;
+  lamp.intensity = lightsOn ? 8 + (1 - day) * 7 : 0;
+  scene.environmentIntensity = (lightsOn ? .12 : .05) + day * .24;
   renderer.toneMappingExposure = 1.05;
   $('lights').setAttribute('aria-pressed', String(lightsOn));
 }
@@ -743,7 +932,9 @@ function hotLabel(k) {
   if (k === 'cd') return playing ? 'CD 机 · 正在放《' + playing.title + '》' : 'CD 机 · 放首歌';
   if (k === 'screen') return '屏幕 · 我们的倒计时';
   if (k === 'plush') return roomOf === 'a' ? '小兔子挂件' : '小熊';
-  if (k === 'books') return '书 · 一起读书';
+  if (k === 'books') return '书 · 去读书角';
+  if (k === 'photo') return '她的照片';
+  if (k === 'bag') return '书包';
   if (k === 'slippers') return '粉色拖鞋 · 等她来穿';
   if (k === 'suitcase') return '行李箱 · 我们的倒计时';
   if (k === 'camera') return '相机 · 咔嚓';
@@ -786,11 +977,19 @@ function act(k, at) {
   else if (k === 'screen') showCountdownCard();
   else if (k === 'plush') { burst(at); toast(roomOf === me || !me ? '想你 💗' : '偷偷捏了一下 💗'); }
   else if (k === 'books') location.href = 'books.html?from=' + roomOf;
+  else if (k === 'photo') showPhoto();
+  else if (k === 'bag') { burst(at); toast('明天也要好好上学 🎒'); }
   else if (k === 'slippers') { burst(at); toast('给你准备好了 🩷'); }
   else if (k === 'suitcase') showCountdownCard();
   else if (k === 'camera') flash();
   else if (k === 'bed') { lightsOn = !lightsOn; updateLights(); toast(lightsOn ? '早安 ☀️' : '晚安 🌙'); }
 }
+function showPhoto() {
+  const box = $('photo');
+  box.hidden = false;
+  $('photo-close').focus();
+}
+$('photo').addEventListener('click', (ev) => { if (ev.target === $('photo') || ev.target === $('photo-close')) $('photo').hidden = true; });
 function flash() {
   const v = $('veil'); v.style.background = '#fff'; v.style.transition = 'none'; v.style.opacity = '.85';
   requestAnimationFrame(() => { v.style.transition = 'opacity .5s'; v.style.opacity = '0'; setTimeout(() => { v.style.transition = ''; }, 520); });
@@ -971,7 +1170,7 @@ function openMusic(on) {
 $('music-close').addEventListener('click', () => openMusic(false));
 $('mini-open').addEventListener('click', () => openMusic(true));
 $('mini-stop').addEventListener('click', stop);
-document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { openMusic(false); $('card').hidden = true; } });
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { openMusic(false); $('card').hidden = true; $('photo').hidden = true; } });
 $('add-form').addEventListener('submit', (ev) => {
   ev.preventDefault();
   const msg = $('add-msg'), s = parseSong($('song-url').value);

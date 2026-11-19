@@ -20,14 +20,24 @@
   function toast(t) { var x = $('toast'); x.textContent = t; x.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { x.hidden = true; }, 1800); }
 
   /* ---------- reading preferences on this device ---------- */
-  var prefs = { fs: 19, theme: 'paper' };
-  try { var sp = JSON.parse(localStorage.getItem('qzm-read') || '{}'); if (sp.fs) prefs.fs = sp.fs; if (sp.theme) prefs.theme = sp.theme; } catch (e) { /* defaults */ }
+  var prefs = { fs: 19, theme: 'paper', lang: 'zh' };
+  try { var sp = JSON.parse(localStorage.getItem('qzm-read') || '{}'); if (sp.fs) prefs.fs = sp.fs; if (sp.theme) prefs.theme = sp.theme; if (sp.lang) prefs.lang = sp.lang; } catch (e) { /* defaults */ }
+  var LANG_LABEL = { zh: '中文', en: 'English', both: '中英对照' };
   function savePrefs() { try { localStorage.setItem('qzm-read', JSON.stringify(prefs)); } catch (e) { /* fine */ } }
   function applyPrefs() {
     $('reader').style.setProperty('--fs', prefs.fs + 'px');
     $('reader').setAttribute('data-theme', prefs.theme);
     document.querySelectorAll('[data-theme]').forEach(function (b) { if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', String(b.getAttribute('data-theme') === prefs.theme)); });
+    document.querySelectorAll('button[data-lang]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-lang') === prefs.lang)); });
+    $('lang-btn').textContent = LANG_LABEL[prefs.lang];
   }
+  function setLang(l) {
+    var f = cur ? fracNow() : 0;
+    prefs.lang = l; applyPrefs(); savePrefs();
+    if (cur) { hideSelUi(); renderChapter(f); }
+  }
+  $('lang-btn').onclick = function () { setLang(prefs.lang === 'zh' ? 'en' : prefs.lang === 'en' ? 'both' : 'zh'); toast(LANG_LABEL[prefs.lang]); };
+  document.querySelectorAll('button[data-lang]').forEach(function (b) { b.onclick = function () { setLang(b.getAttribute('data-lang')); }; });
 
   /* ---------- shared state: where each of us is, and our notes ---------- */
   var db = null;
@@ -81,6 +91,7 @@
       });
       var n = Object.keys(shared.notes).filter(function (k) { return shared.notes[k] && shared.notes[k].book === b.id; }).length;
       if (n) prog.appendChild(el('span', 'notes-n', '✎ ' + n + ' 条笔记'));
+      if (b.zh_ch && b.zh_ch.length) prog.appendChild(el('span', 'zh-n', '中文已译 ' + b.zh_ch.length + ' / ' + b.chapters + ' 章'));
       info.appendChild(prog);
       btn.append(cover, info); li.appendChild(btn); ul.appendChild(li);
     });
@@ -98,7 +109,10 @@
   var cur = null;
   function loadBook(id) {
     if (books[id]) return Promise.resolve(books[id]);
-    return fetch('books/' + id + '.json?v=1').then(function (r) { return r.json(); }).then(function (b) { books[id] = b; return b; });
+    return Promise.all([
+      fetch('books/' + id + '.json?v=1').then(function (r) { return r.json(); }),
+      fetch('books/' + id + '.zh.json?v=1').then(function (r) { return r.ok ? r.json() : { ch: {} }; }).catch(function () { return { ch: {} }; })
+    ]).then(function (x) { var b = x[0]; b.zh = x[1].ch || {}; books[id] = b; return b; });
   }
   function openBook(id, ch, f, push) {
     var meta = shelf.filter(function (x) { return x.id === id; })[0];
@@ -126,6 +140,8 @@
     return Object.keys(shared.notes).map(function (k) { return shared.notes[k]; })
       .filter(function (n) { return n && n.book === bookId && n.ch === ch; });
   }
+  function textOf(i, l) { return l === 'zh' ? ((cur.b.zh[cur.ch] || [])[i] || '') : cur.b.ch[cur.ch].p[i]; }
+  function marksFor(i, l) { return notesIn(cur.b.id, cur.ch).filter(function (n) { return n.p === i && (n.l || 'en') === l; }); }
   /* one paragraph, with our marks laid over it */
   function paint(pEl, text, list) {
     pEl.textContent = '';
@@ -151,11 +167,19 @@
     page.classList.toggle('poem', !!b.poem);
     page.appendChild(el('h2', null, c.t));
     page.appendChild(el('p', 'sub', c.s));
-    var notes = notesIn(b.id, cur.ch);
-    c.p.forEach(function (text, i) {
-      var p = el('p', 't'); p.setAttribute('data-i', i);
-      paint(p, text, notes.filter(function (n) { return n.p === i; }));
+    var zhp = b.zh[cur.ch], mode = prefs.lang;
+    if (mode !== 'en' && !zhp) page.appendChild(el('p', 'notice', '这一章的中文还在翻译，先看英文。'));
+    var add = function (i, l, text, pair) {
+      var p = el('p', 't' + (l === 'zh' ? ' zh' : '') + (pair ? ' pair' : ''));
+      p.setAttribute('data-i', i); p.setAttribute('data-l', l);
+      p.setAttribute('lang', l === 'zh' ? 'zh-CN' : 'en');
+      paint(p, text, marksFor(i, l));
+      crossNotes(p, i, l);
       page.appendChild(p);
+    };
+    c.p.forEach(function (text, i) {
+      if (mode === 'en' || mode === 'both' || !zhp) add(i, 'en', text, false);
+      if (zhp && (mode === 'zh' || mode === 'both')) add(i, 'zh', zhp[i], mode === 'both');
     });
     page.appendChild(el('p', 'end', cur.ch < b.ch.length - 1 ? '— 本章完 —' : '— 全书完 —'));
     $('r-ch').textContent = c.t + (c.s ? ' · ' + c.s : '');
@@ -255,6 +279,7 @@
       var li = el('li'), b = el('button'); b.type = 'button'; b.setAttribute('data-i', i);
       var t = el('span', 't'); t.appendChild(el('b', null, c.t)); t.appendChild(el('small', null, c.s));
       b.appendChild(t);
+      if (cur.b.zh[i]) b.appendChild(el('span', 'zh-b', '中'));
       ['a', 'b'].forEach(function (w) { var p = posOf(w, cur.b.id); if (p && p.ch === i) { var d = el('span', 'dot ' + w); d.title = NAMES[w] + ' 在这一章'; b.appendChild(d); } });
       b.onclick = function () { openDrawer(false); goChapter(i, 0); };
       li.appendChild(b); ol.appendChild(li);
@@ -284,7 +309,10 @@
       var m = $('page').querySelector('mark[data-id="' + n.id + '"]');
       if (m) { m.scrollIntoView({ block: 'center' }); m.animate && m.animate([{ outline: '3px solid #e9b77c' }, { outline: '3px solid transparent' }], { duration: 1400 }); }
     };
-    if (cur.ch !== n.ch) { goChapter(n.ch, 0); setTimeout(show, 80); } else show();
+    var l = n.l || 'en', need = l === 'zh' ? (prefs.lang === 'en' ? 'both' : null) : (prefs.lang === 'zh' ? 'both' : null);
+    if (need) { prefs.lang = need; applyPrefs(); savePrefs(); }
+    if (cur.ch !== n.ch) { goChapter(n.ch, 0); setTimeout(show, 80); }
+    else if (need) { renderChapter(fracNow()); setTimeout(show, 80); } else show();
   }
 
   /* ---------- Aa ---------- */
@@ -306,13 +334,13 @@
     var p = start && start.closest && start.closest('p.t');
     if (!p || !$('page').contains(p)) { hideSelUi(); return; }
     var pre = document.createRange(); pre.selectNodeContents(p); pre.setEnd(r.startContainer, r.startOffset);
-    var o = pre.toString().length, text = cur.b.ch[cur.ch].p[+p.getAttribute('data-i')];
+    var l = p.getAttribute('data-l') || 'en', o = pre.toString().length, text = textOf(+p.getAttribute('data-i'), l);
     var endInP = p.contains(r.endContainer);
     var q = endInP ? r.toString() : text.slice(o);
     var lead = q.length - q.replace(/^\s+/, '').length;
     q = q.trim(); o += lead;
     if (!q || q.length > 800) { hideSelUi(); return; }
-    sel = { p: +p.getAttribute('data-i'), o: o, q: q };
+    sel = { p: +p.getAttribute('data-i'), o: o, q: q, l: l };
     var rect = r.getBoundingClientRect(), btn = $('mark-btn');
     btn.style.left = Math.max(70, Math.min(innerWidth - 70, rect.left + rect.width / 2)) + 'px';
     btn.style.top = Math.min(innerHeight - 60, rect.bottom + 52) + 'px';
@@ -332,7 +360,7 @@
   $('compose-cancel').onclick = function () { $('compose').hidden = true; hideSelUi(); };
   $('compose-save').onclick = function () {
     if (!sel || !cur) return;
-    var n = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), book: cur.b.id, ch: cur.ch, p: sel.p, o: sel.o, q: sel.q, t: $('compose-t').value.trim(), by: me, at: Date.now() };
+    var n = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), book: cur.b.id, ch: cur.ch, p: sel.p, o: sel.o, q: sel.q, l: sel.l, t: $('compose-t').value.trim(), by: me, at: Date.now() };
     shared.notes[n.id] = n;
     $('compose').hidden = true; hideSelUi();
     try { window.getSelection().removeAllRanges(); } catch (e) { /* fine */ }
@@ -341,12 +369,40 @@
     if (REF) { var body = { notes: {} }; body.notes[n.id] = n; REF.set(body, { merge: true }).catch(function () { toast('没存上，再试一次'); }); }
   };
   function repaintPara(i) {
-    var p = $('page').querySelector('p.t[data-i="' + i + '"]');
-    if (p && cur) paint(p, cur.b.ch[cur.ch].p[i], notesIn(cur.b.id, cur.ch).filter(function (n) { return n.p === i; }));
+    if (!cur) return;
+    $('page').querySelectorAll('p.t[data-i="' + i + '"]').forEach(function (p) {
+      var l = p.getAttribute('data-l') || 'en';
+      paint(p, textOf(i, l), marksFor(i, l));
+      crossNotes(p, i, l);
+    });
+  }
+  /* notes written on the other language's text: a small pen at the end of the paragraph */
+  function crossNotes(p, i, l) {
+    if (prefs.lang === 'both') return;
+    var o = l === 'zh' ? 'en' : 'zh', list = marksFor(i, o);
+    if (!list.length) return;
+    var b = el('button', 'xnote' + (list.some(function (n) { return n.by === 'b'; }) ? ' b' : ' a'), '✎ ' + list.length);
+    b.type = 'button'; b.setAttribute('data-ids', list.map(function (n) { return n.id; }).join(','));
+    b.setAttribute('aria-label', '这一段有 ' + list.length + ' 条' + (o === 'en' ? '英文' : '中文') + '笔记');
+    p.appendChild(b);
   }
   /* tapping a mark shows what was written */
   function hideBubble() { $('bubble').hidden = true; }
   $('page').addEventListener('click', function (ev) {
+    var x = ev.target.closest && ev.target.closest('.xnote');
+    if (x) {
+      var bx = $('bubble'); bx.textContent = '';
+      x.getAttribute('data-ids').split(',').forEach(function (id) {
+        var nn = shared.notes[id]; if (!nn) return;
+        bx.appendChild(el('p', 'who-l', (NAMES[nn.by] || '') + ' · ' + day(nn.at)));
+        bx.appendChild(el('p', 'xq', '“' + nn.q + '”'));
+        if (nn.t) bx.appendChild(el('p', null, nn.t));
+      });
+      var rx = x.getBoundingClientRect();
+      bx.style.left = Math.max(170, Math.min(innerWidth - 170, rx.left + rx.width / 2)) + 'px';
+      bx.style.top = Math.min(innerHeight - 160, rx.bottom) + 'px';
+      bx.hidden = false; return;
+    }
     var m = ev.target.closest && ev.target.closest('mark.n');
     if (!m) { hideBubble(); $('aa-pop').hidden = true; return; }
     var n = shared.notes[m.getAttribute('data-id')];
