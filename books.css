@@ -137,6 +137,8 @@ body.drawer-open .scrim { opacity: 1; pointer-events: auto; }
 
 /* Chinese */
 .lang-btn { flex: none; height: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--rline); background: none; color: var(--rink); font-size: 13px; }
+.page p.t[lang="zh-CN"]:not(.zh), .page p.t[lang="ja"] { font-family: var(--font-serif); font-size: calc(var(--fs) - 1px); line-height: 1.95; text-indent: 2em; text-align: justify; hyphens: none; -webkit-hyphens: none; }
+.page p.t[lang="ja"] { font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", var(--font-serif); }
 .page p.t.zh { font-family: var(--font-serif); font-size: calc(var(--fs) - 1px); line-height: 1.95; text-indent: 2em; text-align: justify; }
 .page.poem p.t.zh { text-indent: 0; padding-left: 0; line-height: 1.85; }
 .page p.t.zh.pair { margin-top: -.35em; padding-left: .9em; border-left: 2px solid var(--rline); text-indent: 0; color: var(--rink); }

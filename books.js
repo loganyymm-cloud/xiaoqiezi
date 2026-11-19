@@ -22,21 +22,28 @@
   /* ---------- reading preferences on this device ---------- */
   var prefs = { fs: 19, theme: 'paper', lang: 'zh' };
   try { var sp = JSON.parse(localStorage.getItem('qzm-read') || '{}'); if (sp.fs) prefs.fs = sp.fs; if (sp.theme) prefs.theme = sp.theme; if (sp.lang) prefs.lang = sp.lang; } catch (e) { /* defaults */ }
-  var LANG_LABEL = { zh: '中文', en: 'English', both: '中英对照' };
+  /* the book's own language: most are English (old public-domain translations); some are Japanese; some are Chinese already */
+  var OL = { en: ['English', '英文', 'en', '英'], ja: ['日本語', '日文', 'ja', '日'], zh: ['中文', '中文', 'zh-CN', '中'] };
+  function olOf() { return (cur && cur.meta && cur.meta.ol) || 'en'; }
+  function langLabel(l) { var o = OL[olOf()]; return l === 'zh' ? '中文' : l === 'en' ? o[0] : '中' + o[3] + '对照'; }
   function savePrefs() { try { localStorage.setItem('qzm-read', JSON.stringify(prefs)); } catch (e) { /* fine */ } }
   function applyPrefs() {
     $('reader').style.setProperty('--fs', prefs.fs + 'px');
     $('reader').setAttribute('data-theme', prefs.theme);
     document.querySelectorAll('[data-theme]').forEach(function (b) { if (b.tagName === 'BUTTON') b.setAttribute('aria-pressed', String(b.getAttribute('data-theme') === prefs.theme)); });
     document.querySelectorAll('button[data-lang]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-lang') === prefs.lang)); });
-    $('lang-btn').textContent = LANG_LABEL[prefs.lang];
+    $('lang-btn').textContent = langLabel(prefs.lang);
+    var o = OL[olOf()], cz = olOf() === 'zh';
+    $('lang-btn').hidden = cz;
+    document.querySelectorAll('button[data-lang="en"]').forEach(function (b) { b.textContent = o[0]; });
+    document.querySelectorAll('button[data-lang]').forEach(function (b) { if (b.parentNode) b.parentNode.hidden = cz; });
   }
   function setLang(l) {
     var f = cur ? fracNow() : 0;
     prefs.lang = l; applyPrefs(); savePrefs();
     if (cur) { hideSelUi(); renderChapter(f); }
   }
-  $('lang-btn').onclick = function () { setLang(prefs.lang === 'zh' ? 'en' : prefs.lang === 'en' ? 'both' : 'zh'); toast(LANG_LABEL[prefs.lang]); };
+  $('lang-btn').onclick = function () { setLang(prefs.lang === 'zh' ? 'en' : prefs.lang === 'en' ? 'both' : 'zh'); toast(langLabel(prefs.lang)); };
   document.querySelectorAll('button[data-lang]').forEach(function (b) { b.onclick = function () { setLang(b.getAttribute('data-lang')); }; });
 
   /* ---------- shared state: where each of us is, and our notes ---------- */
@@ -111,7 +118,7 @@
     if (books[id]) return Promise.resolve(books[id]);
     return Promise.all([
       fetch('books/' + id + '.json?v=2').then(function (r) { return r.json(); }),
-      fetch('books/' + id + '.zh.json?v=56').then(function (r) { return r.ok ? r.json() : { ch: {} }; }).catch(function () { return { ch: {} }; })
+      fetch('books/' + id + '.zh.json?v=57').then(function (r) { return r.ok ? r.json() : { ch: {} }; }).catch(function () { return { ch: {} }; })
     ]).then(function (x) { var b = x[0]; b.zh = x[1].ch || {}; b.zs = x[1].s || {}; books[id] = b; return b; });
   }
   function openBook(id, ch, f, push) {
@@ -123,7 +130,8 @@
     if (push !== false && location.hash !== '#' + id) history.pushState({ book: id }, '', '#' + id);
     loadBook(id).then(function (b) {
       var mine = me && posOf(me, id);
-      cur = { b: b, ch: ch != null ? ch : mine ? Math.min(mine.ch, b.ch.length - 1) : 0 };
+      cur = { b: b, meta: meta, ch: ch != null ? ch : mine ? Math.min(mine.ch, b.ch.length - 1) : 0 };
+      applyPrefs();
       renderChapter(f != null ? f : ch == null && mine ? mine.f || 0 : 0);
       renderToc(); renderNotes();
       beat();
@@ -131,7 +139,7 @@
   }
   function closeReader(push) {
     savePos(true);
-    cur = null; hideSelUi();
+    cur = null; hideSelUi(); applyPrefs();
     $('reader').hidden = true; $('lib').hidden = false; openDrawer(false);
     if (push !== false && location.hash) history.pushState(null, '', location.pathname + location.search);
     renderShelf();
@@ -169,12 +177,12 @@
     page.appendChild(el('h2', null, c.t));
     page.appendChild(el('p', 'sub', subOf(cur.ch)));
     if (prefs.lang === 'both' && b.zs && b.zs[cur.ch]) page.appendChild(el('p', 'sub en', c.s));
-    var zhp = b.zh[cur.ch], mode = prefs.lang;
-    if (mode !== 'en' && !zhp) page.appendChild(el('p', 'notice', '这一章的中文还在翻译，先看英文。'));
+    var cz = olOf() === 'zh', zhp = cz ? null : b.zh[cur.ch], mode = cz ? 'en' : prefs.lang;
+    if (mode !== 'en' && !zhp) page.appendChild(el('p', 'notice', '这一章的中文还在翻译，先看' + OL[olOf()][1] + '。'));
     var add = function (i, l, text, pair) {
       var p = el('p', 't' + (l === 'zh' ? ' zh' : '') + (pair ? ' pair' : ''));
       p.setAttribute('data-i', i); p.setAttribute('data-l', l);
-      p.setAttribute('lang', l === 'zh' ? 'zh-CN' : 'en');
+      p.setAttribute('lang', l === 'zh' ? 'zh-CN' : OL[olOf()][2]);
       paint(p, text, marksFor(i, l));
       crossNotes(p, i, l);
       page.appendChild(p);
@@ -311,7 +319,7 @@
       var m = $('page').querySelector('mark[data-id="' + n.id + '"]');
       if (m) { m.scrollIntoView({ block: 'center' }); m.animate && m.animate([{ outline: '3px solid #e9b77c' }, { outline: '3px solid transparent' }], { duration: 1400 }); }
     };
-    var l = n.l || 'en', need = l === 'zh' ? (prefs.lang === 'en' ? 'both' : null) : (prefs.lang === 'zh' ? 'both' : null);
+    var l = n.l || 'en', need = olOf() === 'zh' ? null : l === 'zh' ? (prefs.lang === 'en' ? 'both' : null) : (prefs.lang === 'zh' ? 'both' : null);
     if (need) { prefs.lang = need; applyPrefs(); savePrefs(); }
     if (cur.ch !== n.ch) { goChapter(n.ch, 0); setTimeout(show, 80); }
     else if (need) { renderChapter(fracNow()); setTimeout(show, 80); } else show();
@@ -380,12 +388,12 @@
   }
   /* notes written on the other language's text: a small pen at the end of the paragraph */
   function crossNotes(p, i, l) {
-    if (prefs.lang === 'both') return;
+    if (prefs.lang === 'both' || olOf() === 'zh') return;
     var o = l === 'zh' ? 'en' : 'zh', list = marksFor(i, o);
     if (!list.length) return;
     var b = el('button', 'xnote' + (list.some(function (n) { return n.by === 'b'; }) ? ' b' : ' a'), '✎ ' + list.length);
     b.type = 'button'; b.setAttribute('data-ids', list.map(function (n) { return n.id; }).join(','));
-    b.setAttribute('aria-label', '这一段有 ' + list.length + ' 条' + (o === 'en' ? '英文' : '中文') + '笔记');
+    b.setAttribute('aria-label', '这一段有 ' + list.length + ' 条' + (o === 'en' ? OL[olOf()][1] : '中文') + '笔记');
     p.appendChild(b);
   }
   /* tapping a mark shows what was written */
@@ -442,7 +450,7 @@
   /* ---------- start ---------- */
   applyPrefs();
   renderWho();
-  fetch('books/shelf.json?v=56').then(function (r) { return r.json(); }).then(function (s) {
+  fetch('books/shelf.json?v=57').then(function (r) { return r.json(); }).then(function (s) {
     shelf = s; renderShelf();
     var id = location.hash.slice(1);
     if (id && shelf.some(function (b) { return b.id === id; })) openBook(id, null, null, false);
