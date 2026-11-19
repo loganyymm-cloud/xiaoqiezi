@@ -219,5 +219,17 @@
   "chapters": 8,
   "words": 16324,
   "ol": "zh"
+ },
+ {
+  "id": "hulan",
+  "zh": "呼兰河传",
+  "en": "Tales of Hulan River",
+  "author": "萧红 Xiao Hong",
+  "tr": "中文原著 · 长篇小说（1940 年香港完稿）",
+  "year": "1941",
+  "color": "#8a5a2b",
+  "chapters": 8,
+  "words": 96566,
+  "ol": "zh"
  }
 ]
