@@ -111,7 +111,7 @@
     if (books[id]) return Promise.resolve(books[id]);
     return Promise.all([
       fetch('books/' + id + '.json?v=2').then(function (r) { return r.json(); }),
-      fetch('books/' + id + '.zh.json?v=43').then(function (r) { return r.ok ? r.json() : { ch: {} }; }).catch(function () { return { ch: {} }; })
+      fetch('books/' + id + '.zh.json?v=44').then(function (r) { return r.ok ? r.json() : { ch: {} }; }).catch(function () { return { ch: {} }; })
     ]).then(function (x) { var b = x[0]; b.zh = x[1].ch || {}; b.zs = x[1].s || {}; books[id] = b; return b; });
   }
   function openBook(id, ch, f, push) {
@@ -442,7 +442,7 @@
   /* ---------- start ---------- */
   applyPrefs();
   renderWho();
-  fetch('books/shelf.json?v=43').then(function (r) { return r.json(); }).then(function (s) {
+  fetch('books/shelf.json?v=44').then(function (r) { return r.json(); }).then(function (s) {
     shelf = s; renderShelf();
     var id = location.hash.slice(1);
     if (id && shelf.some(function (b) { return b.id === id; })) openBook(id, null, null, false);
