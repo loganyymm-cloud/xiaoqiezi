@@ -248,5 +248,28 @@
    2
   ],
   "ol": "de"
+ },
+ {
+  "id": "aku",
+  "zh": "罗生门",
+  "en": "Rashōmon and Other Stories",
+  "author": "芥川龙之介 Akutagawa Ryūnosuke",
+  "tr": "日文原版 · 短篇九篇（1915—1922）",
+  "year": "1922",
+  "color": "#6b3d4a",
+  "chapters": 9,
+  "words": 79975,
+  "zh_ch": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8
+  ],
+  "ol": "ja"
  }
 ]
