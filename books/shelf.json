@@ -231,5 +231,22 @@
   "chapters": 8,
   "words": 96566,
   "ol": "zh"
+ },
+ {
+  "id": "meta",
+  "zh": "变形记",
+  "en": "Die Verwandlung",
+  "author": "卡夫卡 Franz Kafka",
+  "tr": "德文原版（Kurt Wolff，1915）",
+  "year": "1915",
+  "color": "#4b5563",
+  "chapters": 3,
+  "words": 19240,
+  "zh_ch": [
+   0,
+   1,
+   2
+  ],
+  "ol": "de"
  }
 ]

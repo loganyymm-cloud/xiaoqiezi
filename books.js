@@ -23,7 +23,7 @@
   var prefs = { fs: 19, theme: 'paper', lang: 'zh' };
   try { var sp = JSON.parse(localStorage.getItem('qzm-read') || '{}'); if (sp.fs) prefs.fs = sp.fs; if (sp.theme) prefs.theme = sp.theme; if (sp.lang) prefs.lang = sp.lang; } catch (e) { /* defaults */ }
   /* the book's own language: most are English (old public-domain translations); some are Japanese; some are Chinese already */
-  var OL = { en: ['English', '英文', 'en', '英'], ja: ['日本語', '日文', 'ja', '日'], zh: ['中文', '中文', 'zh-CN', '中'] };
+  var OL = { en: ['English', '英文', 'en', '英'], ja: ['日本語', '日文', 'ja', '日'], de: ['Deutsch', '德文', 'de', '德'], zh: ['中文', '中文', 'zh-CN', '中'] };
   function olOf() { return (cur && cur.meta && cur.meta.ol) || 'en'; }
   function langLabel(l) { var o = OL[olOf()]; return l === 'zh' ? '中文' : l === 'en' ? o[0] : '中' + o[3] + '对照'; }
   function savePrefs() { try { localStorage.setItem('qzm-read', JSON.stringify(prefs)); } catch (e) { /* fine */ } }
@@ -118,7 +118,7 @@
     if (books[id]) return Promise.resolve(books[id]);
     return Promise.all([
       fetch('books/' + id + '.json?v=2').then(function (r) { return r.json(); }),
-      fetch('books/' + id + '.zh.json?v=57').then(function (r) { return r.ok ? r.json() : { ch: {} }; }).catch(function () { return { ch: {} }; })
+      fetch('books/' + id + '.zh.json?v=58').then(function (r) { return r.ok ? r.json() : { ch: {} }; }).catch(function () { return { ch: {} }; })
     ]).then(function (x) { var b = x[0]; b.zh = x[1].ch || {}; b.zs = x[1].s || {}; books[id] = b; return b; });
   }
   function openBook(id, ch, f, push) {
@@ -450,7 +450,7 @@
   /* ---------- start ---------- */
   applyPrefs();
   renderWho();
-  fetch('books/shelf.json?v=58').then(function (r) { return r.json(); }).then(function (s) {
+  fetch('books/shelf.json?v=59').then(function (r) { return r.json(); }).then(function (s) {
     shelf = s; renderShelf();
     var id = location.hash.slice(1);
     if (id && shelf.some(function (b) { return b.id === id; })) openBook(id, null, null, false);
