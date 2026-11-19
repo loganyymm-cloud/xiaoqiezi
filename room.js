@@ -370,6 +370,13 @@ function buildLogan(g) {
   blk(g, [.94, 0, .03], [.44, .7, .46], ink);
   for (const y of [.23, .46]) blk(g, [.95, y, .49], [.42, .006, .006], M(0x0b0b0c), { cast: false });
   for (const y of [.13, .36, .59]) blk(g, [1.12, y, .49], [.08, .015, .015], M(0x55585e));
+  /* a few books on top of the drawers: our reading room */
+  const shelfBooks = new THREE.Group(); g.add(shelfBooks);
+  [[0x7a2e2a, .26], [0x23395b, .3], [0x3b3a36, .24], [0xc9a35d, .22]].forEach(([col, h], i) => {
+    const bk = blk(shelfBooks, [1.0 + i * .075, .7, .1], [.06, h, .22], M(col, { roughness: .7 }));
+    if (i === 3) { bk.rotation.z = -.35; bk.position.x += .04; }
+  });
+  hot(shelfBooks, 'books');
   blk(g, [.05, 0, .1], [.5, .38, .62], M(0xa7afb6, { transparent: true, opacity: .85, roughness: .4 }));
 
   /* office chair with the green strap */
@@ -533,7 +540,9 @@ function buildHer(g) {
   for (const y of [.0, .42, .84, 1.26]) blk(g, [.08, y, .06], [.7, .04, .3], wood);
   for (const x of [.08, .74]) blk(g, [x, 0, .06], [.04, 1.3, .3], wood);
   const bc = [0xe8a0a8, 0x9fc0e0, 0xf3d38b, 0xb7d3a8, 0xd5b6e8, 0xf1f1f1];
-  for (let s = 0; s < 3; s++) for (let i = 0; i < 6; i++) blk(g, [.14 + i * .095, .04 + s * .42, .1], [.07, .26 + (i % 3) * .04, .2], M(bc[(i + s) % bc.length]));
+  const shelfBooks = new THREE.Group(); g.add(shelfBooks);
+  for (let s = 0; s < 3; s++) for (let i = 0; i < 6; i++) blk(shelfBooks, [.14 + i * .095, .04 + s * .42, .1], [.07, .26 + (i % 3) * .04, .2], M(bc[(i + s) % bc.length]));
+  hot(shelfBooks, 'books');
   /* fairy lights along the right wall */
   for (let i = 0; i < 14; i++) {
     const z = .2 + i * .24, y = 2.05 - Math.sin(i * .9) * .06;
@@ -734,6 +743,7 @@ function hotLabel(k) {
   if (k === 'cd') return playing ? 'CD 机 · 正在放《' + playing.title + '》' : 'CD 机 · 放首歌';
   if (k === 'screen') return '屏幕 · 我们的倒计时';
   if (k === 'plush') return roomOf === 'a' ? '小兔子挂件' : '小熊';
+  if (k === 'books') return '书 · 一起读书';
   if (k === 'slippers') return '粉色拖鞋 · 等她来穿';
   if (k === 'suitcase') return '行李箱 · 我们的倒计时';
   if (k === 'camera') return '相机 · 咔嚓';
@@ -775,6 +785,7 @@ function act(k, at) {
   else if (k === 'cd') openMusic(true);
   else if (k === 'screen') showCountdownCard();
   else if (k === 'plush') { burst(at); toast(roomOf === me || !me ? '想你 💗' : '偷偷捏了一下 💗'); }
+  else if (k === 'books') location.href = 'books.html?from=' + roomOf;
   else if (k === 'slippers') { burst(at); toast('给你准备好了 🩷'); }
   else if (k === 'suitcase') showCountdownCard();
   else if (k === 'camera') flash();

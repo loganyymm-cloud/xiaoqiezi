@@ -1,0 +1,35 @@
+[
+ {
+  "id": "prince",
+  "zh": "君主论",
+  "en": "The Prince",
+  "author": "马基雅维利 Niccolò Machiavelli",
+  "tr": "英译：W. K. Marriott（1908）",
+  "year": "1532",
+  "color": "#7a2e2a",
+  "chapters": 28,
+  "words": 49222
+ },
+ {
+  "id": "dante",
+  "zh": "神曲",
+  "en": "The Divine Comedy",
+  "author": "但丁 Dante Alighieri",
+  "tr": "英译：H. W. Longfellow（1867）",
+  "year": "1320",
+  "color": "#23395b",
+  "chapters": 100,
+  "words": 113008
+ },
+ {
+  "id": "crime",
+  "zh": "罪与罚",
+  "en": "Crime and Punishment",
+  "author": "陀思妥耶夫斯基 Fyodor Dostoevsky",
+  "tr": "英译：Constance Garnett（1914）",
+  "year": "1866",
+  "color": "#3b3a36",
+  "chapters": 40,
+  "words": 202617
+ }
+]

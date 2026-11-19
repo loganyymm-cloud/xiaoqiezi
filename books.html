@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>一起读书</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap">
+<link rel="stylesheet" href="books.css?v=1">
+</head>
+<body>
+<!-- the shelf -->
+<main class="lib" id="lib">
+  <header class="lib-head">
+    <a class="back" id="back" href="index.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+      <span id="back-text">首页</span>
+    </a>
+    <div class="who" id="who" role="group" aria-label="我是谁"></div>
+  </header>
+  <section class="lib-intro">
+    <p class="kicker">OUR READING ROOM</p>
+    <h1>一起读书</h1>
+    <p class="lede">两个人读同一本书，看得到对方读到哪儿，划的线和写的话两边都能看到。</p>
+    <p class="live" id="live" hidden></p>
+  </section>
+  <ul class="shelf" id="shelf" aria-label="书架"></ul>
+  <p class="note">书都是公有领域的英文译本。</p>
+</main>
+
+<!-- the reader -->
+<section class="reader" id="reader" hidden>
+  <header class="r-bar">
+    <button class="icon" id="to-shelf" type="button" aria-label="回书架">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <div class="r-title"><b id="r-book"></b><span id="r-ch"></span></div>
+    <button class="icon" id="open-toc" type="button" aria-label="目录和笔记">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+    </button>
+    <button class="icon" id="open-aa" type="button" aria-label="字号和颜色"><span class="aa">Aa</span></button>
+  </header>
+  <div class="aa-pop" id="aa-pop" hidden>
+    <div class="row"><span>字号</span><button class="chip" type="button" data-fs="-1">A−</button><button class="chip" type="button" data-fs="1">A+</button></div>
+    <div class="row"><span>颜色</span><button class="chip" type="button" data-theme="paper">纸张</button><button class="chip" type="button" data-theme="sepia">暖黄</button><button class="chip" type="button" data-theme="night">夜间</button></div>
+  </div>
+  <div class="together" id="together" hidden></div>
+  <article class="page" id="page" tabindex="-1"></article>
+  <nav class="r-foot">
+    <button class="nav" id="prev" type="button">上一章</button>
+    <span class="pct" id="pct"></span>
+    <button class="nav" id="next" type="button">下一章</button>
+  </nav>
+  <button class="mark-btn" id="mark-btn" type="button" hidden>划线 · 写一句</button>
+  <div class="bubble" id="bubble" hidden></div>
+</section>
+
+<!-- table of contents and our notes -->
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="d-head">
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tab-toc" type="button" role="tab" aria-selected="true">目录</button>
+      <button class="tab" id="tab-notes" type="button" role="tab" aria-selected="false">我们的笔记</button>
+    </div>
+    <button class="icon" id="close-drawer" type="button" aria-label="关闭">×</button>
+  </div>
+  <ol class="toc" id="toc"></ol>
+  <ol class="notes" id="notes" hidden></ol>
+</aside>
+<div class="scrim" id="scrim"></div>
+
+<!-- writing a note -->
+<div class="compose" id="compose" hidden>
+  <p class="q" id="compose-q"></p>
+  <label class="sr" for="compose-t">写一句话（可不填）</label>
+  <textarea id="compose-t" rows="3" maxlength="400" placeholder="写一句话给 TA（可不填）"></textarea>
+  <div class="acts">
+    <button class="btn ghost" id="compose-cancel" type="button">算了</button>
+    <button class="btn" id="compose-save" type="button">划线</button>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js?v=1"></script>
+<script src="books.js?v=1"></script>
+</body>
+</html>

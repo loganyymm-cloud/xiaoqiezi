@@ -227,7 +227,7 @@
     var seen = false;
     db.collection('places').onSnapshot(function (snap) {
       /* the rooms' music list and who-is-home also live here; they don't change the map */
-      if (seen && typeof snap.docChanges === 'function' && snap.docChanges().every(function (ch) { return ch.doc.id === '_rooms' || ch.doc.id === '_music'; })) return;
+      if (seen && typeof snap.docChanges === 'function' && snap.docChanges().every(function (ch) { return ch.doc.id.charAt(0) === '_' && ch.doc.id !== '_people'; })) return;
       seen = true;
       var next = {};
       snap.forEach(function (d) {

@@ -7,6 +7,7 @@
   var LANGS = [['zh-CN', '简体中文'], ['zh-TW', '繁體中文'], ['en', 'English'], ['ja', '日本語'], ['ko', '한국어'], ['fr', 'Français']];
   var T = {
     'zh-CN': {
+      books: '一起读书', booksEmpty: '一起读同一本书，划线写给对方', openBooks: '打开书房', readingLine: '{name} 在读{book}',
       title: '我们的小世界', cards: '这里有的东西', look: '打开看看', openCd: '打开倒计时', earth: '我们的地球', earthEmpty: '一起去过的地方，都记在这里', openEarth: '打开地球',
       line: { since: '{name} 已经 {n} 天', left: '{name} 还有 {n} 天', today: '{name} 就是今天' }, lit: '点亮了 {n} 个地方', photos: '一起存了 {n} 张照片',
       settings: '设置', done: '完成', lang: '语言', langNote: '只改这台设备', bg: '背景', bgNote: '改了两边都会看到',
@@ -16,6 +17,7 @@
       reset: '恢复默认', imgFail: '这张图片打不开，换一张试试'
     },
     'zh-TW': {
+      books: '一起讀書', booksEmpty: '一起讀同一本書，劃線寫給對方', openBooks: '打開書房', readingLine: '{name} 在讀{book}',
       title: '我們的小世界', cards: '這裡有的東西', look: '打開看看', openCd: '打開倒數', earth: '我們的地球', earthEmpty: '一起去過的地方，都記在這裡', openEarth: '打開地球',
       line: { since: '{name} 已經 {n} 天', left: '{name} 還有 {n} 天', today: '{name} 就是今天' }, lit: '點亮了 {n} 個地方', photos: '一起存了 {n} 張照片',
       settings: '設定', done: '完成', lang: '語言', langNote: '只改這台裝置', bg: '背景', bgNote: '改了兩邊都會看到',
@@ -25,6 +27,7 @@
       reset: '恢復預設', imgFail: '這張圖片打不開，換一張試試'
     },
     en: {
+      books: 'Reading Together', booksEmpty: 'Read the same book and leave notes for each other', openBooks: 'Open the reading room', readingLine: '{name} is reading {book}',
       title: 'Our Little World', cards: 'What’s here', look: 'Take a look', openCd: 'Open the countdown', earth: 'Our Earth', earthEmpty: 'Every place we’ve been together', openEarth: 'Open the earth',
       line: { since: '{name}: {n} days so far', left: '{name}: {n} days to go', today: '{name}: today!' }, lit: '{n} places lit up', photos: '{n} photos saved together',
       settings: 'Settings', done: 'Done', lang: 'Language', langNote: 'this device only', bg: 'Background', bgNote: 'both of you will see it',
@@ -34,6 +37,7 @@
       reset: 'Reset', imgFail: 'This image could not be opened. Try another one.'
     },
     ja: {
+      books: '一緒に読書', booksEmpty: '同じ本を読んで、線を引いてメモを残そう', openBooks: '書斎を開く', readingLine: '{name} は{book}を読んでいます',
       title: '私たちの小さな世界', cards: 'ここにあるもの', look: '開いてみる', openCd: 'カウントダウンを開く', earth: '私たちの地球', earthEmpty: '一緒に行った場所をここに', openEarth: '地球を開く',
       line: { since: '{name} から {n} 日', left: '{name} まで あと {n} 日', today: '{name} は今日' }, lit: '{n} か所が光っています', photos: '一緒に保存した写真 {n} 枚',
       settings: '設定', done: '完了', lang: '言語', langNote: 'この端末だけ', bg: '背景', bgNote: '二人とも同じ背景になります',
@@ -43,6 +47,7 @@
       reset: '初期設定に戻す', imgFail: 'この画像は開けません。別の画像をお試しください。'
     },
     ko: {
+      books: '함께 읽기', booksEmpty: '같은 책을 읽고 서로에게 메모를 남겨요', openBooks: '서재 열기', readingLine: '{name}님이 {book} 읽는 중',
       title: '우리의 작은 세상', cards: '여기 있는 것들', look: '열어 보기', openCd: '카운트다운 열기', earth: '우리의 지구', earthEmpty: '함께 간 곳을 모두 여기에', openEarth: '지구 열기',
       line: { since: '{name} {n}일째', left: '{name}까지 {n}일', today: '{name} 바로 오늘' }, lit: '{n}곳이 빛나고 있어요', photos: '함께 저장한 사진 {n}장',
       settings: '설정', done: '완료', lang: '언어', langNote: '이 기기에만 적용', bg: '배경', bgNote: '둘 다 같은 배경이 보여요',
@@ -52,6 +57,7 @@
       reset: '기본값으로', imgFail: '이 이미지를 열 수 없어요. 다른 이미지를 사용해 주세요.'
     },
     fr: {
+      books: 'Lire ensemble', booksEmpty: 'Lire le même livre et se laisser des notes', openBooks: 'Ouvrir la bibliothèque', readingLine: '{name} lit {book}',
       title: 'Notre petit monde', cards: 'Ce qu’il y a ici', look: 'Jeter un œil', openCd: 'Ouvrir le compte à rebours', earth: 'Notre Terre', earthEmpty: 'Tous les endroits où nous sommes allés ensemble', openEarth: 'Ouvrir la Terre',
       line: { since: '{name} : déjà {n} jours', left: '{name} : encore {n} jours', today: '{name} : c’est aujourd’hui' }, lit: '{n} endroits allumés', photos: '{n} photos gardées ensemble',
       settings: 'Réglages', done: 'Terminé', lang: 'Langue', langNote: 'sur cet appareil seulement', bg: 'Arrière-plan', bgNote: 'vous le verrez tous les deux',
@@ -137,7 +143,24 @@
   /* ======================================================================
      Static text and the two cards
      ====================================================================== */
-  var cdState = null, earthStats = null, names = null;
+  var cdState = null, earthStats = null, names = null, reading = null;
+  var BOOKS = { prince: ['君主论', 'The Prince'], dante: ['神曲', 'The Divine Comedy'], crime: ['罪与罚', 'Crime and Punishment'] };
+  function showBooks() {
+    var ul = document.getElementById('book-lines'); if (!ul) return;
+    var pos = (reading && reading.pos) || {}, rows = [];
+    ['a', 'b'].forEach(function (w) {
+      var p = pos[w], id = p && p.last && BOOKS[p.last] ? p.last : null;
+      if (!id && p) Object.keys(BOOKS).forEach(function (k) { if (p[k] && (!id || (p[k].at || 0) > (p[id].at || 0))) id = k; });
+      if (!id) return;
+      var nm = (names && names[w]) || (w === 'a' ? 'Logan' : '茄子萌');
+      var title = /^zh/.test(lang) ? '《' + BOOKS[id][0] + '》' : BOOKS[id][1];
+      rows.push(fillT(t('readingLine'), { name: nm, book: title }));
+    });
+    ul.textContent = '';
+    if (!rows.length) { var li = document.createElement('li'); li.textContent = t('booksEmpty'); ul.appendChild(li); return; }
+    rows.forEach(function (r) { var li = document.createElement('li'); li.textContent = r; ul.appendChild(li); });
+  }
+  function fillT(s, o) { for (var k in o) s = s.split('{' + k + '}').join(o[k]); return s; }
   function applyText() {
     document.documentElement.lang = lang;
     document.title = t('title');
@@ -145,6 +168,7 @@
     document.querySelectorAll('[data-t-aria]').forEach(function (el) { el.setAttribute('aria-label', t(el.getAttribute('data-t-aria'))); });
     showCountdown(cdState);
     showEarth(earthStats);
+    showBooks();
   }
 
   var DEFAULT_NAMES = { met: '我们认识', fly: '老婆飞到加拿大', bday: '老婆生日 😘' };
@@ -244,6 +268,7 @@
       snap.forEach(function (d) {
         var x = d.data() || {};
         if (d.id === '_people') { names = x; return; }
+        if (d.id === '_reading') { reading = x; return; }
         if (d.id.charAt(0) === '_') return;
         var a = !!(x.visited && x.visited.a), b = !!(x.visited && x.visited.b);
         for (var k in (x.spots || {})) { if (x.spots[k] && x.spots[k].a) a = true; if (x.spots[k] && x.spots[k].b) b = true; }
@@ -251,7 +276,7 @@
         photos += Math.max(0, x.photos || 0);
       });
       earthStats = { lit: lit, photos: photos };
-      showEarth(earthStats); showNames();
+      showEarth(earthStats); showNames(); showBooks();
     }, function () {});
     db.collection('pages').doc('home').onSnapshot(function (snap) {
       if (!snap.exists || (snap.metadata && snap.metadata.hasPendingWrites)) return;
