@@ -92,10 +92,10 @@
 
   /* ---------- shared state ---------- */
   var meta = TOR ? Q.TORONTO : null;
-  var shared = { check: {}, stop: {}, extra: {}, plan: {}, dayt: {} };
+  var shared = { check: {}, stop: {}, extra: {}, plan: {}, dayt: {}, flight: {} };
   var CK = TOR ? 'qzm-trip' : 'qzm-trip-' + TID;
   function adopt(x) {
-    shared = { check: x.check || {}, stop: x.stop || {}, extra: x.extra || {}, plan: x.plan || {}, dayt: x.dayt || {} };
+    shared = { check: x.check || {}, stop: x.stop || {}, extra: x.extra || {}, plan: x.plan || {}, dayt: x.dayt || {}, flight: x.flight || {} };
     if (!TOR && x.meta) meta = x.meta;
   }
   try { var c = JSON.parse(localStorage.getItem(CK) || 'null'); if (c) adopt(c); } catch (e) { /* fresh */ }
@@ -456,12 +456,148 @@
     if (keepFocus) { var f = box.querySelector('form[data-k="' + keepFocus + '"] input'); if (f) f.focus(); keepFocus = null; }
   }
 
+  /* ---------- flights and stamps ---------- */
+  var F = window.QZFly, flyWho = 'both', flyArm = {}, flyOpen = false, allTrips = null;
+  function flyDirty() { return Array.prototype.some.call($('fly').querySelectorAll('form input'), function (i) { return i.value !== i.defaultValue; }); }
+  function flightsSorted() {
+    var fl = shared.flight || {};
+    return Object.keys(fl).filter(function (k) { return fl[k] && fl[k].to; })
+      .sort(function (x, y) { return ((fl[x].date || '') < (fl[y].date || '') ? -1 : (fl[x].date || '') > (fl[y].date || '') ? 1 : 0) || ((fl[x].at || 0) - (fl[y].at || 0)); });
+  }
+  function wdOf(iso) { var o = Q.ymd(iso); if (!o) return ''; return o.m + '.' + o.d + ' ' + Q.WD[Q.fromNo(Q.dayNo(o)).wd]; }
+  /* every trip's flights, to know whether a landing is somewhere new */
+  function loadAllTrips() {
+    if (!db) return Promise.resolve([]);
+    var FP = window.firebase.firestore.FieldPath.documentId();
+    return db.collection('places').where(FP, '>=', '_trip').where(FP, '<', '_trip\uf8ff').get().then(function (snap) {
+      var out = []; snap.forEach(function (d) { if (Q.idOf(d.id)) out.push({ id: Q.idOf(d.id), data: d.data() || {} }); }); return out;
+    }, function () { return []; });
+  }
+  function flightCard(fid) {
+    var f = shared.flight[fid], li = el('li', 'fcard');
+    var top = el('div', 'ftop');
+    var no = el('b', 'fno', F.prettyNo(f.no)); top.appendChild(no);
+    var al = F.airline(f.no); if (al) top.appendChild(el('span', 'fal', al));
+    top.appendChild(el('span', 'fdate', wdOf(f.date)));
+    var who = el('span', 'fwho');
+    (f.who === 'both' ? ['a', 'b'] : [f.who]).forEach(function (w) { if (NAMES[w]) { var c = el('span', 'chip ' + w, NAMES[w]); who.appendChild(c); } });
+    top.appendChild(who);
+    var x = el('button', 'fx', flyArm[fid] ? '确定删？' : '×'); x.type = 'button'; x.setAttribute('aria-label', '删掉这班航班');
+    x.onclick = function () {
+      if (!flyArm[fid]) { flyArm[fid] = true; renderFly(); setTimeout(function () { if (flyArm[fid]) { delete flyArm[fid]; renderFly(); } }, 3500); return; }
+      delete flyArm[fid]; drop(['flight.' + fid]).catch(function () {});
+    };
+    top.appendChild(x);
+    var mid = el('div', 'froute');
+    function end(code, city, cls) { var d = el('div', 'fend ' + cls); d.appendChild(el('b', null, code)); d.appendChild(el('span', null, city || '')); return d; }
+    var line = el('div', 'fline'); line.appendChild(el('span', 'plane', '✈'));
+    line.appendChild(el('small', null, f.km ? F.fmtKm(f.km) + ' 公里 · ' + F.fmtKm(F.miles(f.km)) + ' 英里' : '里程没算'));
+    mid.append(end(f.from || '—', f.fromCity, 'from'), line, end(f.to, f.toCity, 'to'));
+    li.append(top, mid);
+    return li;
+  }
+  function stampTile(s, cap) {
+    var d = el('figure', 'stamp');
+    var pic = el('div', 'stamp-pic'); pic.innerHTML = F.stampSVG(s);
+    var fc = el('figcaption');
+    fc.appendChild(el('b', null, s.city));
+    fc.appendChild(el('span', null, (cap || '') + (s.date ? s.date.replace(/-/g, '.') : '')));
+    var dots = el('span', 'dots'); ['a', 'b'].forEach(function (w) { if (s.who && s.who[w]) { var i = el('i', 'dot ' + w); i.title = NAMES[w]; dots.appendChild(i); } });
+    fc.appendChild(dots);
+    d.append(pic, fc);
+    return d;
+  }
+  function flyForm() {
+    var f = el('form', 'tripform flyform'); f.autocomplete = 'off';
+    f.appendChild(el('h2', null, '记一班航班'));
+    var no = inp('text', '', '航班号，比如 AC 8817', 10); no.setAttribute('aria-label', '航班号');
+    var lastDate = (function () { var k = flightsSorted(); return k.length ? shared.flight[k[k.length - 1]].date : (meta && meta.start) || ''; })();
+    var dt = inp('date', lastDate); dt.setAttribute('aria-label', '日期');
+    var al = el('small', 'fal-hint');
+    no.addEventListener('input', function () { var a = F.airline(no.value); al.textContent = a ? '✈ ' + a : ''; });
+    var r1 = el('div', 'two'); r1.append(field('航班号', no), field('日期', dt));
+    var from = inp('text', '', '从哪起飞：机场代码或城市', 60); from.setAttribute('aria-label', '出发机场');
+    var to = inp('text', '', '飞到哪：机场代码或城市', 60); to.setAttribute('aria-label', '到达机场');
+    var r2 = el('div', 'two'); r2.append(field('从', from), field('到', to));
+    f.append(r1, al, r2);
+    var whoRow = el('div', 'seg whoseg'); whoRow.setAttribute('role', 'group'); whoRow.setAttribute('aria-label', '谁坐这班');
+    [['both', '两个人'], ['a', NAMES.a], ['b', NAMES.b]].forEach(function (o) {
+      var b = el('button', null, o[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(flyWho === o[0]));
+      b.onclick = function () { flyWho = o[0]; whoRow.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); }); };
+      whoRow.appendChild(b);
+    });
+    var wr = el('div', 'fld'); wr.appendChild(el('span', null, '谁坐这班')); wr.appendChild(whoRow); f.appendChild(wr);
+    var kmIn = inp('number', '', '自动算', 6); kmIn.min = '1'; kmIn.max = '25000'; kmIn.setAttribute('aria-label', '里程（公里）');
+    var kmShow = el('small', 'km-show', '选好两个机场就会自动算里程');
+    var r3 = field('里程（公里，可不填）', kmIn); f.append(r3, kmShow);
+    var A = null, B = null;
+    function upd() {
+      var k = F.km(A && A.get(), B && B.get());
+      kmShow.textContent = k ? '两个机场之间大约 ' + F.fmtKm(k) + ' 公里 · ' + F.fmtKm(F.miles(k)) + ' 英里' : '选好两个机场就会自动算里程';
+      kmIn.placeholder = k ? String(k) : '自动算';
+    }
+    A = F.airportBox(from, upd); B = F.airportBox(to, upd);
+    var acts = el('div', 'acts');
+    var no2 = el('button', 'btn', '收起'); no2.type = 'button'; no2.onclick = function () { flyOpen = false; renderFly(); };
+    var ok = el('button', 'btn main', '记下来，盖章'); ok.type = 'submit';
+    acts.append(no2, ok); f.appendChild(acts);
+    var busy = false;
+    f.onsubmit = function (ev) {
+      ev.preventDefault(); if (busy || !needMe()) return;
+      var n = F.cleanNo(no.value);
+      if (n.length < 3) { toast('填一下航班号'); no.focus(); return; }
+      if (!dt.value) { toast('选一下日期'); dt.focus(); return; }
+      var a = A.get(), b = B.get();
+      var toCode = b ? b.code : (/^[A-Za-z]{3}$/.test(to.value.trim()) ? to.value.trim().toUpperCase() : '');
+      var fromCode = a ? a.code : (/^[A-Za-z]{3}$/.test(from.value.trim()) ? from.value.trim().toUpperCase() : '');
+      if (!toCode) { toast('「到」要选一个机场，或者填三个字母的机场代码'); to.focus(); return; }
+      if (!fromCode) { toast('「从」要选一个机场，或者填三个字母的机场代码'); from.focus(); return; }
+      var manual = parseInt(kmIn.value, 10), auto = F.km(a, b), k = manual > 0 ? manual : auto;
+      var rec = { no: n, date: dt.value, from: fromCode, to: toCode, fromCity: a ? F.cityOf(a) : fromCode, toCity: b ? F.cityOf(b) : toCode,
+        toCityEn: b ? b.en : '', toCountry: b ? b.cc : '', who: flyWho, km: k || null, auto: !(manual > 0), by: me, at: Date.now() };
+      var key = rec.toCountry + ':' + rec.toCity, fid = uid('f'), o = { flight: {} };
+      o.flight[fid] = rec;
+      busy = true;
+      (allTrips ? Promise.resolve(allTrips) : loadAllTrips()).then(function (all) {
+        var others = all.filter(function (t) { return t.id !== TID; }).concat([{ id: TID, data: shared }]);
+        var had = F.collect(others).stamps.some(function (s) { return s.key === key; });
+        return put(o).then(function () {
+          busy = false; flyOpen = false; allTrips = null; renderFly(); renderHero();
+          if (!had) F.celebrate({ key: key, city: rec.toCity, cityEn: rec.toCityEn, cc: rec.toCountry, code: rec.to, date: rec.date });
+          else toast('记好了 · ' + rec.toCity + ' 的印章已经有了');
+        });
+      }).catch(function () { busy = false; });
+    };
+    return f;
+  }
+  function renderFly() {
+    var box = $('fly'); if (!box || !F) return;
+    box.textContent = '';
+    if (!meta) return;
+    var ids = flightsSorted(), tot = 0;
+    ids.forEach(function (k) { tot += +shared.flight[k].km || 0; });
+    var head = el('div', 'flyhead');
+    head.appendChild(el('h2', null, '这次的航班'));
+    head.appendChild(el('p', 'sub', ids.length ? ids.length + ' 段 · 一共 ' + F.fmtKm(tot) + ' 公里（' + F.fmtKm(F.miles(tot)) + ' 英里）' : '还没记航班。记下第一班，就能解锁一个当地印章。'));
+    box.appendChild(head);
+    if (ids.length) { var ul = el('ul', 'flights'); ids.forEach(function (k) { ul.appendChild(flightCard(k)); }); box.appendChild(ul); }
+    if (flyOpen) box.appendChild(flyForm());
+    else { var b = el('button', 'btn main addfly', '+ 记一班航班'); b.type = 'button'; b.onclick = function () { flyOpen = true; F.load(); renderFly(); var x = $('fly').querySelector('input[aria-label="航班号"]'); if (x) x.focus(); }; box.appendChild(b); }
+    var st = F.collect([{ id: TID, meta: meta, data: shared }]).stamps;
+    var page = el('section', 'passport');
+    page.appendChild(el('h2', null, '这次解锁的印章'));
+    if (!st.length) page.appendChild(el('p', 'pempty', '落地的城市会在这里盖上印章'));
+    else { var g = el('div', 'stamps'); st.forEach(function (s) { g.appendChild(stampTile(s, '')); }); page.appendChild(g); }
+    box.appendChild(page);
+  }
+
   /* ---------- tabs ---------- */
   var tab = 'plan';
-  try { if (localStorage.getItem('qzm-trip-tab') === 'lists') tab = 'lists'; } catch (e) { /* fine */ }
+  try { var lt = localStorage.getItem('qzm-trip-tab'); if (lt === 'lists' || lt === 'fly') tab = lt; } catch (e) { /* fine */ }
   function showTab() {
     document.querySelectorAll('#tabs button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-tab') === tab)); });
-    $('tab-plan').hidden = tab !== 'plan'; $('tab-lists').hidden = tab !== 'lists';
+    $('tab-plan').hidden = tab !== 'plan'; $('tab-lists').hidden = tab !== 'lists'; $('tab-fly').hidden = tab !== 'fly';
+    if (tab === 'fly' && F) F.load().then(function () { if (!flyDirty()) renderFly(); }, function () {});
   }
   document.querySelectorAll('#tabs button').forEach(function (b) {
     b.onclick = function () { tab = b.getAttribute('data-tab'); try { localStorage.setItem('qzm-trip-tab', tab); } catch (e) { /* fine */ } showTab(); };
@@ -490,7 +626,7 @@
   }
 
   /* ---------- start ---------- */
-  function renderAll() { renderHero(); renderDays(); renderLists(); tickCount(); snow(); }
+  function renderAll() { renderHero(); renderDays(); renderLists(); if (!flyDirty()) renderFly(); tickCount(); snow(); }
   /* redraw a section unless something is half-typed there; keep the cursor where it was */
   function rerender(id, fn) {
     var root = $(id), dirty = Array.prototype.some.call(root.querySelectorAll('form input'), function (i) { return i.value !== i.defaultValue; });
@@ -516,7 +652,7 @@
       try { localStorage.setItem(CK, JSON.stringify(x)); } catch (e) { /* fine */ }
       banner(null);
       renderHero(); tickCount(); snow();
-      rerender('days', renderDays); rerender('lists', renderLists);
+      rerender('days', renderDays); rerender('lists', renderLists); rerender('fly', renderFly);
       if (!metaOpen) renderMeta();
     }, function () { banner('同步断开了，刷新一下试试。'); });
   } else if (!TOR && !meta) gone();

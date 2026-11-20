@@ -37,10 +37,9 @@
 
   function render() {
     var list = Q.sortTrips(trips()), ol = $('trips'); ol.textContent = '';
-    var past = list.filter(function (x) { return x.s.state === 'after'; }).length, places = 0;
-    list.forEach(function (x) { places += Q.stopCount(x.t); });
+    var F = window.QZFly, fly = F ? F.collect(list.map(function (x) { return x.t; })) : { flights: [], stamps: [], total: { all: 0, a: 0, b: 0, n: 0 } };
     var st = $('stats'); st.textContent = '';
-    [[list.length, '次旅行'], [past, '次已经去过'], [places, '个想去的地点']].forEach(function (p) {
+    [[list.length, '次旅行'], [fly.total.n, '段航班'], [F ? F.fmtKm(fly.total.all) : 0, '公里飞过'], [fly.stamps.length, '枚印章']].forEach(function (p) {
       var d = el('div', 'stat'); d.appendChild(el('b', null, String(p[0]))); d.appendChild(el('span', null, p[1])); st.appendChild(d);
     });
     list.forEach(function (x) {
@@ -66,6 +65,38 @@
       li.appendChild(card);
       ol.appendChild(li);
     });
+    renderBook(fly);
+  }
+
+  /* ---------- the stamp book ---------- */
+  function renderBook(fly) {
+    var F = window.QZFly, box = $('book'); if (!box || !F) return;
+    box.textContent = '';
+    var h = el('div', 'bookhead');
+    h.appendChild(el('h2', null, '印章本'));
+    var t = fly.total;
+    if (t.n) {
+      var laps = t.all / 40075;
+      h.appendChild(el('p', 'sub', '一共飞了 ' + F.fmtKm(t.all) + ' 公里（' + F.fmtKm(F.miles(t.all)) + ' 英里）· ' + (laps >= 0.1 ? '差不多绕地球 ' + laps.toFixed(laps >= 10 ? 0 : 1) + ' 圈' : '绕地球的 ' + Math.max(1, Math.round(laps * 100)) + '%')));
+      var who = el('p', 'sub whos');
+      ['a', 'b'].forEach(function (w) { var sp = el('span'); sp.appendChild(el('i', 'dot ' + w)); sp.appendChild(document.createTextNode(' ' + NAMES[w] + ' ' + F.fmtKm(t[w]) + ' 公里')); who.appendChild(sp); });
+      h.appendChild(who);
+    } else h.appendChild(el('p', 'sub', '在每次旅行的「航班 · 印章」里记下航班，落地的城市就会盖在这里。'));
+    box.appendChild(h);
+    if (!fly.stamps.length) { box.appendChild(el('p', 'pempty', '第一枚印章，等你们来盖')); return; }
+    var g = el('div', 'stamps');
+    fly.stamps.forEach(function (s) {
+      var a = el('a', 'stamp'); a.href = 'trip.html' + (s.trip.id === 'toronto' ? '' : '?t=' + encodeURIComponent(s.trip.id));
+      a.setAttribute('aria-label', s.city + ' 印章 · ' + s.trip.meta.title);
+      var pic = el('div', 'stamp-pic'); pic.innerHTML = F.stampSVG(s);
+      var fc = el('span', 'cap');
+      fc.appendChild(el('b', null, s.city));
+      fc.appendChild(el('span', null, (s.date || '').replace(/-/g, '.') + ' · ' + s.trip.meta.title));
+      var dots = el('span', 'dots'); ['a', 'b'].forEach(function (w) { if (s.who[w]) { var i = el('i', 'dot ' + w); i.title = NAMES[w]; dots.appendChild(i); } });
+      fc.appendChild(dots);
+      a.append(pic, fc); g.appendChild(a);
+    });
+    box.appendChild(g);
   }
 
   /* ---------- a new trip ---------- */

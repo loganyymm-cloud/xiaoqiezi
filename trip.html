@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>旅行计划</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600&display=swap">
-<link rel="stylesheet" href="plan.css?v=2">
+<link rel="stylesheet" href="plan.css?v=3">
 </head>
 <body class="trip">
 <canvas class="snow" id="snow" aria-hidden="true"></canvas>
@@ -41,11 +41,17 @@
     <div class="seg tabs" id="tabs" role="group" aria-label="切换">
       <button type="button" data-tab="plan" aria-pressed="true">每日行程</button>
       <button type="button" data-tab="lists" aria-pressed="false">清单</button>
+      <button type="button" data-tab="fly" aria-pressed="false">航班 · 印章</button>
     </div>
 
     <section id="tab-plan">
       <ol class="days" id="days" aria-label="每日行程"></ol>
       <p class="foot" id="foot-plan"></p>
+    </section>
+
+    <section id="tab-fly" hidden>
+      <div id="fly"></div>
+      <p class="foot">填航班号和起落机场，里程按两个机场之间的大圆距离自动算，也可以自己改。每落地一个新城市，就盖一个那里的印章；所有印章都收在「全部旅行」的印章本里。</p>
     </section>
 
     <section id="tab-lists" hidden>
@@ -64,6 +70,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js?v=1794930658"></script>
 <script src="tripcore.js?v=1"></script>
-<script src="trip.js?v=4"></script>
+<script src="flights.js?v=1"></script>
+<script src="trip.js?v=5"></script>
 </body>
 </html>
