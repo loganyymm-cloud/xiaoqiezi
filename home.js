@@ -7,7 +7,7 @@
   var LANGS = [['zh-CN', '简体中文'], ['zh-TW', '繁體中文'], ['en', 'English'], ['ja', '日本語'], ['ko', '한국어'], ['fr', 'Français']];
   var T = {
     'zh-CN': {
-      promise: '我们的承诺本', promiseEmpty: '说好的事，都写在这里', openPromise: '打开承诺本', promN: '写下了 {n} 个承诺', promDone: '兑现了 {n} 个', trip: '一起去旅行', tripWhere: '多伦多 · 12.19 – 12.29', tripLeft: '离见面还有 {n} 天', tripDay: '旅行第 {n} 天', tripAfter: '旅行结束 {n} 天了', tripPack: '行李装好 {n} 样', openTrip: '打开旅行计划',
+      promise: '我们的承诺本', promiseEmpty: '说好的事，都写在这里', openPromise: '打开承诺本', promN: '写下了 {n} 个承诺', promDone: '兑现了 {n} 个', trip: '一起去旅行', tripWhere: '多伦多 · 12.19 – 12.29', tripLeft: '离落地还有 {n} 天', tripDay: '旅行第 {n} 天', tripAfter: '旅行结束 {n} 天了', tripPack: '行李装好 {n} 样', openTrip: '打开旅行计划',
       books: '一起读书', booksEmpty: '一起读同一本书，划线写给对方', openBooks: '打开书房', readingLine: '{name} 在读{book}',
       title: '我们的小世界', cards: '这里有的东西', look: '打开看看', openCd: '打开倒计时', earth: '我们的地球', earthEmpty: '一起去过的地方，都记在这里', openEarth: '打开地球',
       line: { since: '{name} 已经 {n} 天', left: '{name} 还有 {n} 天', today: '{name} 就是今天' }, lit: '点亮了 {n} 个地方', photos: '一起存了 {n} 张照片',
@@ -18,7 +18,7 @@
       reset: '恢复默认', imgFail: '这张图片打不开，换一张试试'
     },
     'zh-TW': {
-      promise: '我們的承諾本', promiseEmpty: '說好的事，都寫在這裡', openPromise: '打開承諾本', promN: '寫下了 {n} 個承諾', promDone: '兌現了 {n} 個', trip: '一起去旅行', tripWhere: '多倫多 · 12.19 – 12.29', tripLeft: '離見面還有 {n} 天', tripDay: '旅行第 {n} 天', tripAfter: '旅行結束 {n} 天了', tripPack: '行李裝好 {n} 樣', openTrip: '打開旅行計畫',
+      promise: '我們的承諾本', promiseEmpty: '說好的事，都寫在這裡', openPromise: '打開承諾本', promN: '寫下了 {n} 個承諾', promDone: '兌現了 {n} 個', trip: '一起去旅行', tripWhere: '多倫多 · 12.19 – 12.29', tripLeft: '離落地還有 {n} 天', tripDay: '旅行第 {n} 天', tripAfter: '旅行結束 {n} 天了', tripPack: '行李裝好 {n} 樣', openTrip: '打開旅行計畫',
       books: '一起讀書', booksEmpty: '一起讀同一本書，劃線寫給對方', openBooks: '打開書房', readingLine: '{name} 在讀{book}',
       title: '我們的小世界', cards: '這裡有的東西', look: '打開看看', openCd: '打開倒數', earth: '我們的地球', earthEmpty: '一起去過的地方，都記在這裡', openEarth: '打開地球',
       line: { since: '{name} 已經 {n} 天', left: '{name} 還有 {n} 天', today: '{name} 就是今天' }, lit: '點亮了 {n} 個地方', photos: '一起存了 {n} 張照片',
@@ -29,7 +29,7 @@
       reset: '恢復預設', imgFail: '這張圖片打不開，換一張試試'
     },
     en: {
-      promise: 'Our Promise Book', promiseEmpty: 'Everything we promised, written down', openPromise: 'Open the promise book', promN: '{n} promises written', promDone: '{n} kept', trip: 'Our Trip', tripWhere: 'Toronto · Dec 19 – 29', tripLeft: '{n} days until we meet', tripDay: 'Day {n} of the trip', tripAfter: 'Trip ended {n} days ago', tripPack: '{n} things packed', openTrip: 'Open the trip plan',
+      promise: 'Our Promise Book', promiseEmpty: 'Everything we promised, written down', openPromise: 'Open the promise book', promN: '{n} promises written', promDone: '{n} kept', trip: 'Our Trip', tripWhere: 'Toronto · Dec 19 – 29', tripLeft: '{n} days until landing', tripDay: 'Day {n} of the trip', tripAfter: 'Trip ended {n} days ago', tripPack: '{n} things packed', openTrip: 'Open the trip plan',
       books: 'Reading Together', booksEmpty: 'Read the same book and leave notes for each other', openBooks: 'Open the reading room', readingLine: '{name} is reading {book}',
       title: 'Our Little World', cards: 'What’s here', look: 'Take a look', openCd: 'Open the countdown', earth: 'Our Earth', earthEmpty: 'Every place we’ve been together', openEarth: 'Open the earth',
       line: { since: '{name}: {n} days so far', left: '{name}: {n} days to go', today: '{name}: today!' }, lit: '{n} places lit up', photos: '{n} photos saved together',
@@ -40,7 +40,7 @@
       reset: 'Reset', imgFail: 'This image could not be opened. Try another one.'
     },
     ja: {
-      promise: '私たちの約束帳', promiseEmpty: '約束したことを、ここに書いておこう', openPromise: '約束帳を開く', promN: '約束 {n} 件', promDone: '守れた約束 {n} 件', trip: '一緒に旅行', tripWhere: 'トロント · 12.19 – 12.29', tripLeft: '会えるまで あと {n} 日', tripDay: '旅行 {n} 日目', tripAfter: '旅行が終わって {n} 日', tripPack: '荷造り済み {n} 点', openTrip: '旅行プランを開く',
+      promise: '私たちの約束帳', promiseEmpty: '約束したことを、ここに書いておこう', openPromise: '約束帳を開く', promN: '約束 {n} 件', promDone: '守れた約束 {n} 件', trip: '一緒に旅行', tripWhere: 'トロント · 12.19 – 12.29', tripLeft: '到着まで あと {n} 日', tripDay: '旅行 {n} 日目', tripAfter: '旅行が終わって {n} 日', tripPack: '荷造り済み {n} 点', openTrip: '旅行プランを開く',
       books: '一緒に読書', booksEmpty: '同じ本を読んで、線を引いてメモを残そう', openBooks: '書斎を開く', readingLine: '{name} は{book}を読んでいます',
       title: '私たちの小さな世界', cards: 'ここにあるもの', look: '開いてみる', openCd: 'カウントダウンを開く', earth: '私たちの地球', earthEmpty: '一緒に行った場所をここに', openEarth: '地球を開く',
       line: { since: '{name} から {n} 日', left: '{name} まで あと {n} 日', today: '{name} は今日' }, lit: '{n} か所が光っています', photos: '一緒に保存した写真 {n} 枚',
@@ -51,7 +51,7 @@
       reset: '初期設定に戻す', imgFail: 'この画像は開けません。別の画像をお試しください。'
     },
     ko: {
-      promise: '우리의 약속 노트', promiseEmpty: '약속한 것들을 여기에 적어요', openPromise: '약속 노트 열기', promN: '약속 {n}개', promDone: '지킨 약속 {n}개', trip: '함께 여행', tripWhere: '토론토 · 12.19 – 12.29', tripLeft: '만나기까지 {n}일', tripDay: '여행 {n}일째', tripAfter: '여행 끝난 지 {n}일', tripPack: '짐 {n}개 챙김', openTrip: '여행 계획 열기',
+      promise: '우리의 약속 노트', promiseEmpty: '약속한 것들을 여기에 적어요', openPromise: '약속 노트 열기', promN: '약속 {n}개', promDone: '지킨 약속 {n}개', trip: '함께 여행', tripWhere: '토론토 · 12.19 – 12.29', tripLeft: '도착까지 {n}일', tripDay: '여행 {n}일째', tripAfter: '여행 끝난 지 {n}일', tripPack: '짐 {n}개 챙김', openTrip: '여행 계획 열기',
       books: '함께 읽기', booksEmpty: '같은 책을 읽고 서로에게 메모를 남겨요', openBooks: '서재 열기', readingLine: '{name}님이 {book} 읽는 중',
       title: '우리의 작은 세상', cards: '여기 있는 것들', look: '열어 보기', openCd: '카운트다운 열기', earth: '우리의 지구', earthEmpty: '함께 간 곳을 모두 여기에', openEarth: '지구 열기',
       line: { since: '{name} {n}일째', left: '{name}까지 {n}일', today: '{name} 바로 오늘' }, lit: '{n}곳이 빛나고 있어요', photos: '함께 저장한 사진 {n}장',
@@ -62,7 +62,7 @@
       reset: '기본값으로', imgFail: '이 이미지를 열 수 없어요. 다른 이미지를 사용해 주세요.'
     },
     fr: {
-      promise: 'Notre carnet de promesses', promiseEmpty: 'Tout ce qu’on s’est promis, noté ici', openPromise: 'Ouvrir le carnet', promN: '{n} promesses écrites', promDone: '{n} tenues', trip: 'Notre voyage', tripWhere: 'Toronto · 19 – 29 déc.', tripLeft: 'encore {n} jours avant de se voir', tripDay: 'jour {n} du voyage', tripAfter: 'voyage fini depuis {n} jours', tripPack: '{n} choses dans la valise', openTrip: 'Ouvrir le plan de voyage',
+      promise: 'Notre carnet de promesses', promiseEmpty: 'Tout ce qu’on s’est promis, noté ici', openPromise: 'Ouvrir le carnet', promN: '{n} promesses écrites', promDone: '{n} tenues', trip: 'Notre voyage', tripWhere: 'Toronto · 19 – 29 déc.', tripLeft: 'encore {n} jours avant l’atterrissage', tripDay: 'jour {n} du voyage', tripAfter: 'voyage fini depuis {n} jours', tripPack: '{n} choses dans la valise', openTrip: 'Ouvrir le plan de voyage',
       books: 'Lire ensemble', booksEmpty: 'Lire le même livre et se laisser des notes', openBooks: 'Ouvrir la bibliothèque', readingLine: '{name} lit {book}',
       title: 'Notre petit monde', cards: 'Ce qu’il y a ici', look: 'Jeter un œil', openCd: 'Ouvrir le compte à rebours', earth: 'Notre Terre', earthEmpty: 'Tous les endroits où nous sommes allés ensemble', openEarth: 'Ouvrir la Terre',
       line: { since: '{name} : déjà {n} jours', left: '{name} : encore {n} jours', today: '{name} : c’est aujourd’hui' }, lit: '{n} endroits allumés', photos: '{n} photos gardées ensemble',
@@ -183,7 +183,7 @@
     var ul = document.getElementById('trip-lines'); if (!ul) return;
     var now = Date.now(); ul.textContent = '';
     var w = document.createElement('li'); w.textContent = t('tripWhere'); ul.appendChild(w);
-    if (now < ARRIVE) ul.appendChild(richLine(t('tripLeft'), { n: Math.ceil((ARRIVE - now) / 86400000) }));
+    if (now < ARRIVE) ul.appendChild(richLine(t('tripLeft'), { n: Math.floor((ARRIVE - now) / 86400000) }));
     else if (now < LEAVE + 86400000) {
       var p = partsIn('America/Toronto', now), i = p.y === 2026 && p.m === 12 ? p.d - 18 : 11;
       ul.appendChild(richLine(t('tripDay'), { n: Math.max(1, Math.min(11, i)) }));
