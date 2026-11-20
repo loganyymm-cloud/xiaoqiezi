@@ -124,3 +124,15 @@ button, input, select { font: inherit; color: inherit; }
 .books i:nth-child(2) { height: 82px; background: #23395b; }
 .books i:nth-child(3) { height: 64px; background: #3b3a36; }
 .books i:nth-child(4) { height: 76px; background: #c9a35d; transform: rotate(8deg); transform-origin: bottom left; margin-left: 3px; }
+
+/* the promise book: a red seal; the trip: a boarding-pass stub */
+.seal { right: 26px; top: 24px; width: 82px; height: 82px; border-radius: 50%; border: 3px double #e0574c; display: grid; place-items: center; transform: rotate(-12deg); opacity: .88; box-shadow: 0 0 0 4px rgba(224, 87, 76, .08); }
+.seal span { font-family: var(--font-text); font-weight: 600; font-size: 34px; color: #e0574c; line-height: 1; }
+.ticket { right: -16px; top: 26px; width: 150px; height: 66px; border-radius: 10px; display: flex; align-items: center; gap: 10px; padding-left: 20px; transform: rotate(8deg);
+  background: linear-gradient(135deg, #bfe0ff 0%, #6f9ee0 100%); color: #0c1626; box-shadow: 0 8px 18px rgba(0, 0, 0, .3); }
+.ticket::before { content: ""; position: absolute; left: 104px; top: 6px; bottom: 6px; border-left: 2px dashed rgba(12, 22, 38, .35); }
+.ticket span { font: 700 28px/1 "Barlow Condensed", "Arial Narrow", sans-serif; letter-spacing: .08em; }
+.ticket i { font-style: normal; font-size: 20px; }
+.card.pr h2, .card.pr .no { padding-right: 100px; }
+.card.tp h2, .card.tp .no { padding-right: 120px; }
+@media (max-width: 480px) { .seal { width: 66px; height: 66px; } .seal span { font-size: 27px; } .ticket { width: 128px; height: 56px; } .ticket::before { left: 88px; } .card.tp h2, .card.tp .no { padding-right: 100px; } }
