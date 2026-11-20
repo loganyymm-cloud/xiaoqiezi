@@ -463,15 +463,17 @@
   "tr": "德文原版（S. Fischer，1930）",
   "year": "1930",
   "color": "#5b4a6e",
-  "chapters": 6,
-  "words": 24135,
+  "chapters": 8,
+  "words": 36737,
   "zh_ch": [
    0,
    1,
    2,
    3,
    4,
-   5
+   5,
+   6,
+   7
   ],
   "ol": "de"
  }
