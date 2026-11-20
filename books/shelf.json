@@ -454,5 +454,21 @@
    19
   ],
   "ol": "de"
+ },
+ {
+  "id": "ng",
+  "zh": "纳尔齐斯与歌尔德蒙",
+  "en": "Narziß und Goldmund",
+  "author": "黑塞 Hermann Hesse",
+  "tr": "德文原版（S. Fischer，1930）",
+  "year": "1930",
+  "color": "#5b4a6e",
+  "chapters": 2,
+  "words": 7246,
+  "zh_ch": [
+   0,
+   1
+  ],
+  "ol": "de"
  }
 ]
