@@ -141,8 +141,7 @@
   /* ---------- hero, countdown ---------- */
   function renderHero() {
     if (!meta) return;
-    var ds = dayList(), n = ds.length, stops = 0;
-    ds.forEach(function (d) { stops += d.fixed.length; });
+    var ds = dayList(), n = ds.length, stops = TOR ? Q.TORONTO.builtinStops : 0;
     stops += Object.keys(shared.plan || {}).filter(function (k) { return shared.plan[k] && shared.plan[k].name; }).length;
     document.title = meta.title;
     $('h-title').textContent = meta.title;
@@ -190,7 +189,7 @@
   var metaOpen = false, delArm = 0;
   $('h-edit').onclick = function () { metaOpen = !metaOpen; renderMeta(); };
   function field(lab, input) { var w = el('label', 'fld'); w.appendChild(el('span', null, lab)); w.appendChild(input); return w; }
-  function inp(type, val, ph, max) { var i = el('input'); i.type = type; i.value = val || ''; if (ph) i.placeholder = ph; if (max) i.maxLength = max; return i; }
+  function inp(type, val, ph, max) { var i = el('input'); i.type = type; i.defaultValue = val || ''; if (ph) i.placeholder = ph; if (max) i.maxLength = max; return i; }
   function renderMeta() {
     var f = $('meta-form'); f.textContent = ''; f.hidden = !metaOpen || TOR || !meta;
     $('h-edit').textContent = metaOpen ? '收起' : '改一改这次旅行';
@@ -303,7 +302,7 @@
       ev.preventDefault(); if (!needMe()) return;
       var t = x.value.trim(); if (t === v) return;
       var o = { dayt: {} }; o.dayt[i] = t;
-      (t ? put(o) : drop(['dayt.' + i])).then(function () { toast('存好了'); }, function () {});
+      (t ? put(o) : drop(['dayt.' + i])).then(function () { toast('存好了'); renderDays(); renderHero(); }, function () {});
     };
     return f;
   }
@@ -407,7 +406,7 @@
       var id = uid('x'), o = { extra: {} };
       o.extra[id] = { list: list, cat: cat || '', text: t, by: me, at: Date.now() };
       keepFocus = k;
-      put(o).then(function () { i.value = ''; }, function () {});
+      put(o).then(function () { i.value = ''; renderLists(); }, function () {});
     };
     f.setAttribute('data-k', k);
     f.append(i, b);
@@ -491,6 +490,14 @@
 
   /* ---------- start ---------- */
   function renderAll() { renderHero(); renderDays(); renderLists(); tickCount(); snow(); }
+  /* redraw a section unless something is half-typed there; keep the cursor where it was */
+  function rerender(id, fn) {
+    var root = $(id), dirty = Array.prototype.some.call(root.querySelectorAll('form input'), function (i) { return i.value !== i.defaultValue; });
+    if (dirty) return;
+    var a = document.activeElement, lab = a && root.contains(a) && a.getAttribute('aria-label');
+    fn();
+    if (lab) { var x = root.querySelector('[aria-label="' + lab.replace(/"/g, '\\"') + '"]'); if (x) x.focus(); }
+  }
   function gone() { $('body').hidden = true; $('gone').hidden = false; document.title = '找不到这次旅行'; }
   renderWho(); showTab(); renderAll();
   setInterval(tickCount, 30000);
@@ -507,10 +514,8 @@
       $('body').hidden = false; $('gone').hidden = true;
       try { localStorage.setItem(CK, JSON.stringify(x)); } catch (e) { /* fine */ }
       banner(null);
-      var a = document.activeElement, typing = a && (a.tagName === 'INPUT' || a.tagName === 'SELECT') && (a.value || a.closest('form.stopform, #meta-form'));
       renderHero(); tickCount(); snow();
-      if (!typing || !a.closest('#days')) renderDays();
-      if (!typing || !a.closest('#lists')) renderLists();
+      rerender('days', renderDays); rerender('lists', renderLists);
       if (!metaOpen) renderMeta();
     }, function () { banner('同步断开了，刷新一下试试。'); });
   } else if (!TOR && !meta) gone();
