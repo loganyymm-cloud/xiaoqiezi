@@ -314,13 +314,14 @@
     if (addedFor(-1, n).length) groups.push({ d: { date: '', wd: '', title: '日期外的安排', fixed: [] }, i: -1 });
     groups.forEach(function (g) {
       var d = g.d, i = g.i, extra = addedFor(i, n);
-      var li = el('li', 'day' + (i === ti ? ' today' : '') + (i === -1 ? ' orphan' : ''));
+      var isToday = i >= 0 && i === ti;
+      var li = el('li', 'day' + (isToday ? ' today' : '') + (i === -1 ? ' orphan' : ''));
       li.setAttribute('aria-expanded', String(!!open[i]));
       var head = el('button'); head.type = 'button';
       var dd = el('div', 'd');
       if (i >= 0) { dd.appendChild(el('b', null, String(i + 1))); dd.appendChild(el('span', null, 'DAY')); } else dd.appendChild(el('b', null, '…'));
       var tt = el('div', 't'), tb = el('b', d.title ? null : 'unnamed', d.title || '还没起名字');
-      if (i === ti) tb.appendChild(el('span', 'now', '今天'));
+      if (isToday) tb.appendChild(el('span', 'now', '今天'));
       var cnt = d.fixed.length + extra.length;
       var doneN = d.fixed.filter(function (_, k) { return shared.stop && shared.stop['d' + (i + 1) + 's' + (k + 1)]; }).length
         + extra.filter(function (k) { return shared.stop && shared.stop[k]; }).length;
