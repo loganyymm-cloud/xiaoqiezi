@@ -82,6 +82,7 @@ button { cursor: pointer; }
 .page .sub { margin: 0 auto 30px; text-align: center; font-family: var(--font-book); font-style: italic; color: var(--rmuted); font-size: 16px; }
 .page p.t { margin: 0 auto 1em; font-family: var(--font-book); font-size: var(--fs); line-height: 1.72; text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
 .page.poem p.t { text-align: left; white-space: pre-line; line-height: 1.6; padding-left: 1.2em; text-indent: -1.2em; }
+.page p.t.v { text-align: left; white-space: pre-line; line-height: 1.6; padding-left: 1.6em; hyphens: none; -webkit-hyphens: none; }
 .page .end { margin: 40px auto 0; text-align: center; color: var(--rmuted); font-size: 13px; }
 mark.n { background: none; color: inherit; cursor: pointer; border-radius: 2px; padding: 0 1px; }
 mark.n.a { background: rgba(143, 211, 255, .38); box-shadow: inset 0 -2px 0 var(--a); }

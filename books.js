@@ -118,7 +118,7 @@
     if (books[id]) return Promise.resolve(books[id]);
     return Promise.all([
       fetch('books/' + id + '.json?v=3').then(function (r) { return r.json(); }),
-      fetch('books/' + id + '.zh.json?v=62').then(function (r) { return r.ok ? r.json() : { ch: {} }; }).catch(function () { return { ch: {} }; })
+      fetch('books/' + id + '.zh.json?v=63').then(function (r) { return r.ok ? r.json() : { ch: {} }; }).catch(function () { return { ch: {} }; })
     ]).then(function (x) { var b = x[0]; b.zh = x[1].ch || {}; b.zs = x[1].s || {}; books[id] = b; return b; });
   }
   function openBook(id, ch, f, push) {
@@ -180,7 +180,7 @@
     var cz = olOf() === 'zh', zhp = cz ? null : b.zh[cur.ch], mode = cz ? 'en' : prefs.lang;
     if (mode !== 'en' && !zhp) page.appendChild(el('p', 'notice', '这一章的中文还在翻译，先看' + OL[olOf()][1] + '。'));
     var add = function (i, l, text, pair) {
-      var p = el('p', 't' + (l === 'zh' ? ' zh' : '') + (pair ? ' pair' : ''));
+      var p = el('p', 't' + (l === 'zh' ? ' zh' : '') + (pair ? ' pair' : '') + (!b.poem && text && text.indexOf('\n') >= 0 ? ' v' : ''));
       p.setAttribute('data-i', i); p.setAttribute('data-l', l);
       p.setAttribute('lang', l === 'zh' ? 'zh-CN' : OL[olOf()][2]);
       paint(p, text, marksFor(i, l));
@@ -450,7 +450,7 @@
   /* ---------- start ---------- */
   applyPrefs();
   renderWho();
-  fetch('books/shelf.json?v=63').then(function (r) { return r.json(); }).then(function (s) {
+  fetch('books/shelf.json?v=64').then(function (r) { return r.json(); }).then(function (s) {
     shelf = s; renderShelf();
     var id = location.hash.slice(1);
     if (id && shelf.some(function (b) { return b.id === id; })) openBook(id, null, null, false);

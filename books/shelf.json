@@ -420,5 +420,18 @@
    109
   ],
   "ol": "ja"
+ },
+ {
+  "id": "sw",
+  "zh": "荒原狼",
+  "en": "Der Steppenwolf",
+  "author": "黑塞 Hermann Hesse",
+  "tr": "德文原版（S. Fischer，1927）",
+  "year": "1927",
+  "color": "#3d4a5c",
+  "chapters": 20,
+  "words": 67505,
+  "zh_ch": [],
+  "ol": "de"
  }
 ]
